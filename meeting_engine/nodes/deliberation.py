@@ -1,0 +1,74 @@
+import json
+
+from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
+
+from .common import get_model, invoke_text
+
+
+def deliberate(
+    state: dict,
+    config: RunnableConfig,
+) -> dict:
+    model = get_model(config)
+
+    context = {
+        "topic": state.get("topic", ""),
+        "current_agenda": state.get("current_agenda", ""),
+        "context_analysis": state.get("context_analysis", ""),
+        "user_feedback": state.get("user_feedback", ""),
+        "round_count": state.get("round_count", 0),
+        "recent_messages": [
+            message.content
+            for message in state.get("messages", [])[-12:]
+            if hasattr(message, "content")
+        ],
+    }
+
+    system_prompt = """
+You are a reasoning participant in a structured meeting.
+
+Analyze the current agenda and contribute substantive reasoning.
+
+Identify:
+1. Main analysis.
+2. Possible approaches.
+3. Advantages and disadvantages.
+4. Risks and uncertainties.
+5. Questions requiring further discussion.
+6. Suggested next step.
+
+Incorporate human feedback.
+Distinguish facts from assumptions.
+Do not claim that a proposal has been accepted.
+Do not invent decisions.
+
+Be analytical and concise.
+"""
+
+    contribution = invoke_text(
+        model=model,
+        system_prompt=system_prompt,
+        human_prompt=json.dumps(
+            context,
+            ensure_ascii=False,
+            default=str,
+            indent=2,
+        ),
+    )
+
+    round_count = state.get("round_count", 0) + 1
+
+    return {
+        "latest_deliberation": contribution,
+        "round_count": round_count,
+        "current_phase": "deliberation",
+        "messages": [
+            AIMessage(
+                content=(
+                    f"[Deliberation, round {round_count}]\n\n"
+                    f"{contribution}"
+                )
+            )
+        ],
+    }

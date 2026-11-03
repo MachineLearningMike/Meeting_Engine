@@ -95,3 +95,7 @@ def test_delete(store):
     assert store.delete("m-1") is True
     assert store.delete("m-1") is False
     assert store.get("m-1") is None
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-v"]))

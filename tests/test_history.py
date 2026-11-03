@@ -419,3 +419,7 @@ def test_three_meetings_continue_the_same_work(store):
     }
     assert [d["description"] for d in state["decisions"]] == ["Adopt adaptive frequency"]
     assert len(store.list_meetings("trading-ai")) == 3
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-v"]))

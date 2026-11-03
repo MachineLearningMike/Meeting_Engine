@@ -110,3 +110,7 @@ def test_parse_json_object_accepts_common_wrappings(text):
 def test_parse_json_object_rejects_missing_object():
     with pytest.raises(ValueError, match="No JSON object found"):
         parse_json_object("no json here")
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-v"]))

@@ -184,3 +184,7 @@ def test_missing_model_raises():
 
     with pytest.raises(ValueError, match="No meeting model supplied"):
         graph.invoke(INITIAL_STATE, {"configurable": {"thread_id": "test"}})
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-v"]))

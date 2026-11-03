@@ -73,11 +73,22 @@ python main.py --model ollama:llama3.1
 
 `MEETING_MODEL` can be set instead of `--model`.
 
+### Setup
+
+Install the package in editable mode once, so `meeting_engine` can be
+imported from anywhere:
+
+```bash
+pip install -e .
+```
+
 ### Tests
 
 ```bash
 pytest
 ```
+
+A single test file can also be run directly, e.g. `python tests/test_graph.py`.
 
 The tests use a scripted model and temporary databases, so they need no API
 key or input.

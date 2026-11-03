@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meeting-engine"
+version = "0.1.0"
+description = "Reusable, model-independent LangGraph engine for structured human-AI meetings."
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.0.0",
+    "langgraph>=1.0.0",
+]
+
+[project.optional-dependencies]
+ui = ["chainlit>=2.0.0"]
+test = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+include = ["meeting_engine*"]

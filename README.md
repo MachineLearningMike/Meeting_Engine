@@ -160,7 +160,6 @@ Meeting_Engine/
 │   ├── schemas.py             # Artifact types and lifecycle rules
 │   ├── storage.py             # SQLite: meeting records + project state
 │   ├── history.py             # Loads project memory for a meeting
-│   ├── config.py
 │   └── nodes/
 │       ├── initialization.py
 │       ├── project_memory.py

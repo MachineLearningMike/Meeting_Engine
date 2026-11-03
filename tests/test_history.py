@@ -170,7 +170,7 @@ def test_invalid_updates_are_dropped_with_a_warning(update, message):
     current = empty_state()
     current["proposals"] = [{"id": "p-1", "description": "A", "status": "proposed"}]
     current["decisions"] = [
-        {"id": "d-1", "description": "D", "status": "approved"},
+        {"id": "d-1", "description": "D", "status": "provisional"},
         {"id": "d-2", "description": "E", "status": "approved"},
     ]
 
@@ -185,6 +185,94 @@ def test_updates_must_be_a_list():
 
     assert updates == []
     assert "'updates' must be a list" in warnings[0]
+
+
+# --- lifecycle ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("field", "current", "new"),
+    [
+        ("proposals", "proposed", "under_discussion"),
+        ("proposals", "under_discussion", "accepted"),
+        ("proposals", "deferred", "under_discussion"),
+        ("decisions", "provisional", "approved"),
+        ("decisions", "approved", "superseded"),
+        ("action_items", "pending", "completed"),
+        ("action_items", "in_progress", "cancelled"),
+        ("unresolved_issues", "open", "resolved"),
+        ("unresolved_issues", "deferred", "open"),
+        ("arguments", "support", "oppose"),
+    ],
+)
+def test_allowed_transitions_are_kept(field, current, new):
+    state = empty_state()
+    text = "content" if field == "arguments" else "description"
+    status = "position" if field == "arguments" else "status"
+    state[field] = [{"id": "x-1", text: "A", status: current}]
+
+    _, updates, warnings = resolve_extraction(
+        {"updates": [{"id": "x-1", "status": new}]}, state, "m-2"
+    )
+
+    assert warnings == []
+    assert updates[0]["status"] == new
+
+
+@pytest.mark.parametrize(
+    ("field", "current", "new"),
+    [
+        ("proposals", "accepted", "rejected"),
+        ("proposals", "rejected", "proposed"),
+        ("proposals", "under_discussion", "proposed"),
+        ("decisions", "approved", "rejected"),
+        ("decisions", "superseded", "approved"),
+        ("action_items", "completed", "pending"),
+        ("action_items", "in_progress", "pending"),
+        ("unresolved_issues", "resolved", "open"),
+    ],
+)
+def test_disallowed_transitions_are_dropped(field, current, new):
+    state = empty_state()
+    state[field] = [{"id": "x-1", "description": "A", "status": current}]
+
+    _, updates, warnings = resolve_extraction(
+        {"updates": [{"id": "x-1", "status": new}]}, state, "m-2"
+    )
+
+    assert updates == []
+    assert f"cannot change from '{current}' to '{new}'" in warnings[0]
+
+
+def test_new_items_may_start_in_any_valid_status():
+    artifacts, _, warnings = resolve_extraction(
+        {"decisions": [{"description": "Agreed today", "status": "approved"}]},
+        empty_state(),
+        "m-1",
+    )
+
+    assert warnings == []
+    assert artifacts["decisions"][0]["status"] == "approved"
+
+
+def test_storage_refuses_disallowed_transition(store):
+    store.save(record("m-1", proposals=[
+        {"id": "p-1", "description": "A", "status": "rejected"}
+    ]))
+
+    with pytest.raises(ValueError, match="cannot change from 'rejected' to 'accepted'"):
+        store.save(record("m-2", artifact_updates=[
+            {"id": "p-1", "artifact_type": "proposals", "status": "accepted"}
+        ]))
+
+    assert store.get("m-2") is None
+    assert store.get_project_state("trading-ai")["proposals"][0]["status"] == "rejected"
+
+
+def test_extraction_prompt_lists_allowed_changes(store):
+    _, model = run_meeting(store)
+
+    assert "decisions: approved -> superseded" in model.calls_for("extraction")[0]["system"]
 
 
 # --- storage: current state --------------------------------------------------
@@ -265,12 +353,12 @@ def test_projects_are_isolated(store):
 def test_resaving_a_meeting_neither_duplicates_nor_reverts(store):
     first = record("m-1", proposals=[{"id": "p-1", "description": "A", "status": "proposed"}])
     second = record("m-2", artifact_updates=[
-        {"id": "p-1", "artifact_type": "proposals", "status": "accepted"}
+        {"id": "p-1", "artifact_type": "proposals", "status": "under_discussion"}
     ])
     store.save(first)
     store.save(second)
     store.save(record("m-3", artifact_updates=[
-        {"id": "p-1", "artifact_type": "proposals", "status": "rejected"}
+        {"id": "p-1", "artifact_type": "proposals", "status": "accepted"}
     ]))
 
     store.save(first)
@@ -278,7 +366,7 @@ def test_resaving_a_meeting_neither_duplicates_nor_reverts(store):
 
     proposals = store.get_project_state("trading-ai")["proposals"]
     assert len(proposals) == 1
-    assert proposals[0]["status"] == "rejected"
+    assert proposals[0]["status"] == "accepted"
     assert proposals[0]["updated_in_meeting"] == "m-3"
 
 

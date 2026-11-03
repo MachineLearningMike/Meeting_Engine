@@ -42,6 +42,45 @@ ARTIFACT_STATUS_FIELDS: dict[str, str] = {
     "unresolved_issues": "status",
 }
 
+# Allowed status changes for artifacts recorded in earlier meetings. A status
+# missing from a mapping is final. New items may start in any valid status.
+# Argument positions are not a lifecycle and may change freely.
+ALLOWED_TRANSITIONS: dict[str, dict[str, set[str]]] = {
+    "proposals": {
+        "proposed": {"under_discussion", "accepted", "rejected", "deferred"},
+        "under_discussion": {"accepted", "rejected", "deferred"},
+        "deferred": {"under_discussion", "accepted", "rejected"},
+    },
+    "decisions": {
+        "provisional": {"approved", "rejected", "superseded"},
+        "approved": {"superseded"},
+    },
+    "action_items": {
+        "pending": {"in_progress", "completed", "cancelled"},
+        "in_progress": {"completed", "cancelled"},
+    },
+    "unresolved_issues": {
+        "open": {"deferred", "resolved"},
+        "deferred": {"open", "resolved"},
+    },
+}
+
+
+def check_transition(artifact_type: str, current: str | None, new: str) -> None:
+    """Raise ValueError if an existing artifact may not move to the new status."""
+
+    transitions = ALLOWED_TRANSITIONS.get(artifact_type)
+
+    if transitions is None or current is None or current == new:
+        return
+
+    if new not in transitions.get(current, set()):
+        allowed = sorted(transitions.get(current, set()))
+        raise ValueError(
+            f"{artifact_type} cannot change from '{current}' to '{new}' "
+            f"(allowed: {', '.join(allowed) or 'none, it is final'})"
+        )
+
 
 class Participant(TypedDict, total=False):
     id: str

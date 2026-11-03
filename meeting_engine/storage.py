@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from .schemas import ARTIFACT_STATUS_FIELDS
+from .schemas import ARTIFACT_STATUS_FIELDS, check_transition
 
 
 class MeetingStorage(Protocol):
@@ -226,7 +226,13 @@ class MeetingStore:
                 )
 
             item = json.loads(row["data_json"])
-            item[ARTIFACT_STATUS_FIELDS[row["artifact_type"]]] = update["status"]
+            status_field = ARTIFACT_STATUS_FIELDS[row["artifact_type"]]
+
+            check_transition(
+                row["artifact_type"], item.get(status_field), update["status"]
+            )
+
+            item[status_field] = update["status"]
             item["updated_in_meeting"] = meeting_id
 
             if update.get("superseded_by"):

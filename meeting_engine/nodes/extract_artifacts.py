@@ -9,6 +9,7 @@ from langchain_core.runnables import RunnableConfig
 
 from ..history import compact_state
 from ..schemas import (
+    ALLOWED_TRANSITIONS,
     ARTIFACT_STATUS_FIELDS,
     ActionItemStatus,
     ArgumentPosition,
@@ -17,6 +18,7 @@ from ..schemas import (
     DecisionStatus,
     ProposalStatus,
     UnresolvedIssueStatus,
+    check_transition,
 )
 from .common import get_model, invoke_text, parse_json_object
 
@@ -112,6 +114,13 @@ def validate_artifacts(data: dict[str, Any]) -> dict[str, list[dict]]:
     return result
 
 
+LIFECYCLE_RULES = "\nALLOWED STATUS CHANGES FOR EXISTING ITEMS:\n\n" + "\n".join(
+    f"{field}: {current} -> {', '.join(sorted(targets))}"
+    for field, transitions in ALLOWED_TRANSITIONS.items()
+    for current, targets in transitions.items()
+) + "\n\nAny other status is final and must not change.\n"
+
+
 def _normalize(text: Any) -> str:
     return " ".join(str(text).lower().split())
 
@@ -155,6 +164,8 @@ def _validate_update(
     note = update.get("note")
     if isinstance(note, str) and note.strip():
         result["note"] = note.strip()
+
+    check_transition(field, item.get(ARTIFACT_STATUS_FIELDS[field]), status)
 
     superseded_by = update.get("superseded_by")
 
@@ -410,7 +421,7 @@ IMPORTANT RULES:
    its status actually changed.
 7. If no items exist in a category, return an empty list.
 8. Do not include Markdown or explanations outside the JSON object.
-"""
+""" + LIFECYCLE_RULES
 
     raw = invoke_text(
         model=model,

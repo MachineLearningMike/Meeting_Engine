@@ -1,6 +1,9 @@
 langchain>=1.0.0
 langgraph>=1.0.0
 
+# Web chat UI (app.py)
+chainlit>=2.0.0
+
 # Model providers are optional. Install the one(s) you use with main.py --model:
 #   langchain-openai        openai:gpt-4o
 #   langchain-anthropic     anthropic:claude-sonnet-5-5

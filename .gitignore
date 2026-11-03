@@ -221,3 +221,7 @@ __marimo__/
 
 # Meeting Engine local databases
 data/
+
+# Chainlit uploads and auto-generated translations
+.files/
+.chainlit/translations/

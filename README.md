@@ -6,7 +6,8 @@ A reusable, model-independent LangGraph engine for structured human-AI meetings.
 
 ```text
 Meeting_Engine/
-├── main.py                  # Interactive demo (choose a model with --model)
+├── app.py                   # Chainlit web chat UI
+├── main.py                  # Console demo (choose a model with --model)
 ├── meeting_engine/
 │   ├── __init__.py
 │   ├── config.py
@@ -67,3 +68,14 @@ python main.py --model ollama:llama3.1
 ```
 
 `MEETING_MODEL` can be set instead of `--model`.
+
+### Web chat UI
+
+```bash
+chainlit run app.py
+```
+
+This opens a chat in the browser. Each meeting stage appears as a collapsible
+step, and the moderator's questions are answered in the chat. The model,
+project ID and round limit are set in the settings panel; the model defaults
+to `MEETING_MODEL` or `openai:gpt-4o`.

@@ -7,10 +7,13 @@ from uuid import uuid4
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
+from ..history import compact_state
 from ..schemas import (
+    ARTIFACT_STATUS_FIELDS,
     ActionItemStatus,
     ArgumentPosition,
     ArgumentTargetType,
+    ArtifactUpdate,
     DecisionStatus,
     ProposalStatus,
     UnresolvedIssueStatus,
@@ -21,31 +24,26 @@ from .common import get_model, invoke_text, parse_json_object
 ARTIFACT_FIELDS = {
     "proposals": {
         "required": ["description"],
-        "status_field": "status",
         "statuses": set(get_args(ProposalStatus)),
         "default_status": "proposed",
     },
     "arguments": {
         "required": ["content"],
-        "status_field": "position",
         "statuses": set(get_args(ArgumentPosition)),
         "default_status": "neutral",
     },
     "decisions": {
         "required": ["description"],
-        "status_field": "status",
         "statuses": set(get_args(DecisionStatus)),
         "default_status": "provisional",
     },
     "action_items": {
         "required": ["description"],
-        "status_field": "status",
         "statuses": set(get_args(ActionItemStatus)),
         "default_status": "pending",
     },
     "unresolved_issues": {
         "required": ["description"],
-        "status_field": "status",
         "statuses": set(get_args(UnresolvedIssueStatus)),
         "default_status": "open",
     },
@@ -86,7 +84,7 @@ def validate_artifacts(data: dict[str, Any]) -> dict[str, list[dict]]:
 
             item["id"] = item.get("id") or str(uuid4())
 
-            status_field = specification["status_field"]
+            status_field = ARTIFACT_STATUS_FIELDS[field]
             status = item.get(status_field, specification["default_status"])
 
             if status not in specification["statuses"]:
@@ -114,17 +112,189 @@ def validate_artifacts(data: dict[str, Any]) -> dict[str, list[dict]]:
     return result
 
 
+def _normalize(text: Any) -> str:
+    return " ".join(str(text).lower().split())
+
+
+def _text_field(field: str) -> str:
+    return ARTIFACT_FIELDS[field]["required"][0]
+
+
+def _validate_update(
+    update: Any,
+    existing: dict[str, tuple[str, dict]],
+    refs: dict[str, tuple[str, str]],
+) -> ArtifactUpdate | None:
+    """Validate one status update. Return None when it changes nothing."""
+
+    if not isinstance(update, dict):
+        raise ValueError("must be a dictionary")
+
+    artifact_id = update.get("id")
+
+    if artifact_id not in existing:
+        raise ValueError(f"unknown artifact id {artifact_id!r}")
+
+    field, item = existing[artifact_id]
+    given_type = update.get("artifact_type", field)
+
+    if given_type != field:
+        raise ValueError(f"{artifact_id!r} is in {field}, not {given_type}")
+
+    status = update.get("status")
+
+    if status not in ARTIFACT_FIELDS[field]["statuses"]:
+        raise ValueError(f"invalid status {status!r} for {field}")
+
+    result: ArtifactUpdate = {
+        "id": artifact_id,
+        "artifact_type": field,
+        "status": status,
+    }
+
+    note = update.get("note")
+    if isinstance(note, str) and note.strip():
+        result["note"] = note.strip()
+
+    superseded_by = update.get("superseded_by")
+
+    if superseded_by:
+        if status != "superseded":
+            raise ValueError("superseded_by requires status 'superseded'")
+
+        if superseded_by in refs:
+            target_field, target_id = refs[superseded_by]
+        elif superseded_by in existing:
+            target_field, target_id = existing[superseded_by][0], superseded_by
+        else:
+            raise ValueError(f"superseded_by refers to unknown {superseded_by!r}")
+
+        if target_field != "decisions" or target_id == artifact_id:
+            raise ValueError("superseded_by must name a different decision")
+
+        result["superseded_by"] = target_id
+
+    if (
+        status == item.get(ARTIFACT_STATUS_FIELDS[field])
+        and "superseded_by" not in result
+    ):
+        return None
+
+    return result
+
+
+def resolve_extraction(
+    data: dict[str, Any],
+    current_state: dict[str, list[dict]],
+    meeting_id: str,
+) -> tuple[dict[str, list[dict]], list[ArtifactUpdate], list[str]]:
+    """Turn the extractor's output into new artifacts, updates and warnings.
+
+    New items may carry a temporary "ref" so that updates and arguments in the
+    same output can point at them. New items that repeat an existing artifact
+    are dropped, and their ref points at the existing artifact instead.
+    Invalid updates and unknown argument targets are dropped with a warning
+    rather than failing the whole extraction.
+    """
+
+    artifacts = validate_artifacts(data)
+    warnings: list[str] = []
+
+    existing = {
+        item["id"]: (field, item)
+        for field, items in current_state.items()
+        for item in items
+    }
+    existing_by_text = {
+        (field, _normalize(item.get(_text_field(field), ""))): item["id"]
+        for field, items in current_state.items()
+        for item in items
+    }
+
+    refs: dict[str, tuple[str, str]] = {}
+
+    for field, items in artifacts.items():
+        kept = []
+
+        for item in items:
+            ref = item.pop("ref", None)
+            text = item[_text_field(field)]
+            existing_id = (
+                item["id"]
+                if item["id"] in existing
+                else existing_by_text.get((field, _normalize(text)))
+            )
+
+            if existing_id:
+                warnings.append(
+                    f"Dropped new {field} item that repeats existing "
+                    f"artifact {existing_id}: {text!r}"
+                )
+                if ref:
+                    refs[str(ref)] = (field, existing_id)
+                continue
+
+            item["created_in_meeting"] = meeting_id
+            item["updated_in_meeting"] = meeting_id
+
+            if ref:
+                refs[str(ref)] = (field, item["id"])
+
+            kept.append(item)
+
+        artifacts[field] = kept
+
+    for argument in artifacts["arguments"]:
+        target = argument.get("target_id")
+
+        if not target or target in existing:
+            continue
+
+        if target in refs:
+            argument["target_id"] = refs[target][1]
+        else:
+            warnings.append(
+                f"Argument {argument['id']} has unknown target_id {target!r}; "
+                "the link was removed."
+            )
+            argument["target_id"] = ""
+
+    raw_updates = data.get("updates", [])
+
+    if not isinstance(raw_updates, list):
+        warnings.append("'updates' must be a list; it was ignored.")
+        raw_updates = []
+
+    updates = []
+
+    for index, raw_update in enumerate(raw_updates):
+        try:
+            update = _validate_update(raw_update, existing, refs)
+        except ValueError as error:
+            warnings.append(f"Dropped updates[{index}]: {error}.")
+            continue
+
+        if update is not None:
+            updates.append(update)
+
+    return artifacts, updates, warnings
+
+
 def extract_meeting_artifacts(
     state: dict,
     config: RunnableConfig,
 ) -> dict:
     model = get_model(config)
 
+    meeting_id = state.get("meeting_id", "")
+    current_state = state.get("project_context", {}).get("current_state", {})
+
     context = {
-        "meeting_id": state.get("meeting_id", ""),
+        "meeting_id": meeting_id,
         "topic": state.get("topic", ""),
         "agenda": state.get("current_agenda", ""),
         "meeting_summary": state.get("meeting_summary", ""),
+        "existing_artifacts": compact_state(current_state),
         "conversation": [
             message.content
             for message in state.get("messages", [])
@@ -137,28 +307,39 @@ You are extracting structured records from a completed human-AI meeting.
 
 Extract only information explicitly supported by the meeting.
 
-Return exactly one JSON object with these five list fields:
+Return exactly one JSON object with these six list fields:
 
 {
   "proposals": [],
   "arguments": [],
   "decisions": [],
   "action_items": [],
-  "unresolved_issues": []
+  "unresolved_issues": [],
+  "updates": []
 }
+
+The first five lists hold NEW items only. "updates" holds status changes to
+items listed in existing_artifacts, which were recorded in earlier meetings.
 
 SCHEMAS:
 
+Any new item may include "ref": a short temporary name such as "p1" or "d1".
+Use it to refer to that new item from an argument or an update.
+
 proposals:
 {
+  "ref": "p1",
   "description": "Proposal description",
   "status": "proposed",
   "created_by": "AI or human"
 }
 
+Valid status:
+proposed, under_discussion, accepted, rejected, deferred
+
 arguments:
 {
-  "target_id": "",
+  "target_id": "id of an existing item, or ref of a new one",
   "target_type": "proposal",
   "position": "support",
   "content": "Argument",
@@ -173,6 +354,7 @@ support, oppose, neutral
 
 decisions:
 {
+  "ref": "d1",
   "description": "Decision description",
   "basis": "Reason for decision",
   "status": "provisional"
@@ -202,6 +384,20 @@ unresolved_issues:
 Valid status:
 open, deferred, resolved
 
+updates:
+{
+  "id": "id from existing_artifacts",
+  "artifact_type": "proposals",
+  "status": "accepted",
+  "note": "Why the status changed",
+  "superseded_by": null
+}
+
+artifact_type is the list the item belongs to: proposals, arguments,
+decisions, action_items or unresolved_issues. For arguments, "status" is the
+new position. When a new decision replaces an existing one, set the existing
+decision's status to "superseded" and superseded_by to the new decision's ref.
+
 IMPORTANT RULES:
 
 1. Never invent proposals, arguments, decisions, or action items.
@@ -209,8 +405,11 @@ IMPORTANT RULES:
 3. A proposal is NOT an accepted proposal.
 4. Only explicitly agreed decisions may be marked approved.
 5. Do not invent owners or deadlines.
-6. If no items exist in a category, return an empty list.
-7. Do not include Markdown or explanations outside the JSON object.
+6. Never re-create an item that is already in existing_artifacts. If the
+   meeting discussed it again, refer to it by id, and add an update only if
+   its status actually changed.
+7. If no items exist in a category, return an empty list.
+8. Do not include Markdown or explanations outside the JSON object.
 """
 
     raw = invoke_text(
@@ -226,19 +425,27 @@ IMPORTANT RULES:
     )
 
     try:
-        artifacts = validate_artifacts(parse_json_object(raw))
+        artifacts, updates, warnings = resolve_extraction(
+            parse_json_object(raw),
+            current_state,
+            meeting_id,
+        )
         extraction_error = ""
     except (ValueError, json.JSONDecodeError) as error:
         # Keep the completed meeting; report the failure instead of raising.
         artifacts = {field: [] for field in ARTIFACT_FIELDS}
+        updates, warnings = [], []
         extraction_error = str(error)
 
     meeting_record = {
-        "meeting_id": state.get("meeting_id", ""),
+        "meeting_id": meeting_id,
         "project_id": state.get("project_id", ""),
         "topic": state.get("topic", ""),
         "agenda": state.get("current_agenda", ""),
+        "meeting_summary": state.get("meeting_summary", ""),
         **artifacts,
+        "artifact_updates": updates,
+        "extraction_warnings": warnings,
     }
 
     if extraction_error:
@@ -253,5 +460,6 @@ IMPORTANT RULES:
         **artifacts,
         "meeting_record": meeting_record,
         "extraction_error": extraction_error,
+        "extraction_warnings": warnings,
         "messages": [AIMessage(content=status_message)],
     }

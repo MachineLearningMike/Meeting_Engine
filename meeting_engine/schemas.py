@@ -28,6 +28,20 @@ DecisionStatus = Literal["provisional", "approved", "rejected", "superseded"]
 ActionItemStatus = Literal["pending", "in_progress", "completed", "cancelled"]
 UnresolvedIssueStatus = Literal["open", "deferred", "resolved"]
 
+# Record fields that hold project artifacts.
+ArtifactType = Literal[
+    "proposals", "arguments", "decisions", "action_items", "unresolved_issues"
+]
+
+# The field holding each artifact type's status.
+ARTIFACT_STATUS_FIELDS: dict[str, str] = {
+    "proposals": "status",
+    "arguments": "position",
+    "decisions": "status",
+    "action_items": "status",
+    "unresolved_issues": "status",
+}
+
 
 class Participant(TypedDict, total=False):
     id: str
@@ -64,6 +78,8 @@ class Proposal(TypedDict, total=False):
     opposing_argument_ids: list[str]
     evidence: list[str]
     created_by: str
+    created_in_meeting: str
+    updated_in_meeting: str
 
 
 class Argument(TypedDict, total=False):
@@ -75,6 +91,8 @@ class Argument(TypedDict, total=False):
     reasoning: str
     evidence: list[str]
     author_id: str
+    created_in_meeting: str
+    updated_in_meeting: str
 
 
 class Decision(TypedDict, total=False):
@@ -86,6 +104,9 @@ class Decision(TypedDict, total=False):
     related_proposal_ids: list[str]
     approved_by: Optional[str]
     created_at: datetime
+    superseded_by: Optional[str]
+    created_in_meeting: str
+    updated_in_meeting: str
 
 
 class ActionItem(TypedDict, total=False):
@@ -95,6 +116,8 @@ class ActionItem(TypedDict, total=False):
     due_date: Optional[datetime]
     status: ActionItemStatus
     related_decision_id: Optional[str]
+    created_in_meeting: str
+    updated_in_meeting: str
 
 
 class UnresolvedIssue(TypedDict, total=False):
@@ -104,6 +127,8 @@ class UnresolvedIssue(TypedDict, total=False):
     next_step: str
     related_problem_id: Optional[str]
     status: UnresolvedIssueStatus
+    created_in_meeting: str
+    updated_in_meeting: str
 
 
 def make_problem(description: str, **fields: object) -> MeetingProblem:
@@ -123,14 +148,47 @@ def make_proposal(problem_id: str, description: str, **fields: object) -> Propos
     }
 
 
+class ArtifactUpdate(TypedDict, total=False):
+    """A status change to an artifact recorded in an earlier meeting."""
+
+    id: str
+    artifact_type: ArtifactType
+    status: str
+    note: str
+    superseded_by: Optional[str]
+
+
+class MeetingSummary(TypedDict, total=False):
+    meeting_id: str
+    topic: str
+    agenda: str
+    meeting_summary: str
+
+
+class ProjectContext(TypedDict, total=False):
+    """What a new meeting knows about its project.
+
+    current_state holds each artifact with its latest status and is
+    authoritative. history holds summaries of past meetings, oldest first,
+    and is background only.
+    """
+
+    project_id: str
+    current_state: dict[str, list[dict]]
+    history: list[MeetingSummary]
+
+
 class MeetingRecord(TypedDict, total=False):
     meeting_id: str
     project_id: str
     topic: str
     agenda: str
+    meeting_summary: str
     proposals: list[Proposal]
     arguments: list[Argument]
     decisions: list[Decision]
     action_items: list[ActionItem]
     unresolved_issues: list[UnresolvedIssue]
+    artifact_updates: list[ArtifactUpdate]
     extraction_error: str
+    extraction_warnings: list[str]

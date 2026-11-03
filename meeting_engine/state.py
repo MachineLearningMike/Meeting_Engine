@@ -16,6 +16,7 @@ from .schemas import (
     MeetingProblem,
     MeetingRecord,
     Participant,
+    ProjectContext,
     Proposal,
     UnresolvedIssue,
 )
@@ -28,6 +29,7 @@ class MeetingState(TypedDict, total=False):
     topic: str
     background: str
     prior_state: dict[str, Any]
+    project_context: ProjectContext
 
     # Meeting inputs
     objectives: list[MeetingObjective]
@@ -47,6 +49,7 @@ class MeetingState(TypedDict, total=False):
     # Aggregate structured record
     meeting_record: MeetingRecord
     extraction_error: str
+    extraction_warnings: list[str]
 
     # Deliberation control
     current_phase: str

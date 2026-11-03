@@ -12,9 +12,10 @@ Meeting_Engine/
 │   ├── __init__.py
 │   ├── config.py
 │   ├── graph.py             # Builds and compiles the meeting graph
+│   ├── history.py           # Loads a project's current state and past meetings
 │   ├── schemas.py           # TypedDict artifact schemas
 │   ├── state.py             # LangGraph state
-│   ├── storage.py           # SQLite storage for meeting records
+│   ├── storage.py           # SQLite: meeting records + current project state
 │   └── nodes/
 │       ├── initialization.py
 │       ├── analysis.py
@@ -27,6 +28,7 @@ Meeting_Engine/
     ├── fakes.py             # Scripted test model, answers per node
     ├── test_graph.py
     ├── test_artifacts.py
+    ├── test_history.py
     └── test_storage.py
 ```
 

@@ -149,6 +149,10 @@ appears as a collapsible step, and the settings panel holds the model,
 project id, round limit and AI participants. Both default to
 `MEETING_MODEL` or `openai:gpt-4o`.
 
+Several people can share one meeting in the browser: one sends `/room` and
+shares the code, the others send `/join CODE`. Everyone sees the meeting live
+and takes part as a human participant the moderator can address by name.
+
 ## Project layout
 
 ```text

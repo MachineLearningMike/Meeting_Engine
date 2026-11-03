@@ -14,3 +14,11 @@ maximum number of deliberation rounds, and AI participants: one per line as
 `Name: role`. Each speaks in every round from its role; without any, a single
 analyst deliberates. Finished meetings are saved to
 `data/meetings.db`.
+
+## Meeting with others
+
+Set your name in the settings panel. One person sends `/room` and shares the
+code; the others send `/join CODE`. When everyone is there, the host sends the
+topic. Everyone sees the meeting as it runs. A question addressed to someone
+goes to that person only; anyone can answer a general question. `/leave`
+leaves the room.

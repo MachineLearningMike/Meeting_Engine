@@ -129,6 +129,25 @@ def test_moderator_can_address_a_human_participant():
     assert result["user_feedback"] == "Yes, up to 5%."
 
 
+def test_answer_to_a_general_question_can_name_its_speaker():
+    graph, config, _, _ = start({"moderator": [moderator_reply(
+        "request_user_feedback", question="Anyone?"), CONCLUDE]})
+
+    result = invoke(graph, Command(resume={"feedback": "Me.", "participant_id": "owner"}), config)
+
+    human = [m for m in result["messages"] if isinstance(m, HumanMessage) and m.name]
+    assert [(m.name, m.content) for m in human] == [("owner", "[Haruto] Me.")]
+
+
+def test_answer_cannot_be_attributed_to_an_ai_participant():
+    graph, config, _, _ = start({"moderator": [moderator_reply(
+        "request_user_feedback", question="Anyone?"), CONCLUDE]})
+
+    result = invoke(graph, Command(resume={"feedback": "Me.", "participant_id": "risk"}), config)
+
+    assert not [m for m in result["messages"] if isinstance(m, HumanMessage) and m.name]
+
+
 @pytest.mark.parametrize("target", ["risk", "nobody"])
 def test_questions_can_only_be_addressed_to_humans(target):
     ask = moderator_reply("request_user_feedback", question="?", ask_participant_id=target)

@@ -48,8 +48,9 @@ DEFAULT_REPLIES = {
 class ScriptedModel(BaseChatModel):
     """Chat model that answers according to the meeting node calling it.
 
-    Each node is identified by the "meeting:<node>" tag set in invoke_text.
-    Scripted replies for a node are used in order; once they run out, the
+    Each node is identified by the "meeting:<node>" tag set in invoke_text,
+    and a participant's turn by "participant:<id>". Scripted replies for a
+    node (or "node:participant") are used in order; once they run out, the
     node's default reply is returned. Every call is recorded in ``calls``.
     """
 
@@ -68,11 +69,18 @@ class ScriptedModel(BaseChatModel):
             raise AssertionError(f"Expected one meeting:<node> tag, got {tags}")
 
         node = nodes[0]
-        queue = self.replies.get(node, [])
+        participant = next(
+            (tag.split(":", 1)[1] for tag in tags if tag.startswith("participant:")),
+            None,
+        )
+
+        # Replies keyed "node:participant" take precedence over "node".
+        queue = self.replies.get(f"{node}:{participant}") or self.replies.get(node, [])
         content = queue.pop(0) if queue else DEFAULT_REPLIES[node]
 
         self.calls.append({
             "node": node,
+            "participant": participant,
             "system": messages[0].content,
             "human": messages[-1].content,
         })

@@ -70,6 +70,7 @@ class MeetingState(TypedDict, total=False):
     moderator_question: str
     moderator_reasoning: str
     moderator_target_agenda_id: str
+    moderator_ask_participant_id: str
     agenda_summary: str
     user_feedback: str
     user_declined_feedback: bool

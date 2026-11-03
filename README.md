@@ -29,6 +29,7 @@ Meeting_Engine/
 └── tests/
     ├── fakes.py             # Scripted test model, answers per node
     ├── test_agenda.py
+    ├── test_participants.py
     ├── test_graph.py
     ├── test_artifacts.py
     ├── test_history.py

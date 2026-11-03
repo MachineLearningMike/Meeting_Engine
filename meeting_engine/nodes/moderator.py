@@ -4,7 +4,13 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from ..history import PROJECT_CONTEXT_RULES, prompt_context
-from .common import agenda_overview, get_model, invoke_text, parse_json_object
+from .common import (
+    agenda_overview,
+    get_model,
+    invoke_text,
+    parse_json_object,
+    participants_overview,
+)
 
 
 VALID_ACTIONS = {
@@ -43,6 +49,7 @@ def moderate(
         "current_agenda_id": current_id,
         "current_agenda": state.get("current_agenda", ""),
         "agenda": agenda_overview(state),
+        "participants": participants_overview(state),
         "context_analysis": state.get("context_analysis", ""),
         "latest_deliberation": state.get("latest_deliberation", ""),
         "user_feedback": state.get("user_feedback", ""),
@@ -72,6 +79,9 @@ maximum has been reached, do not continue the current item.
 For conclude_agenda, defer_agenda and conclude_meeting, give agenda_summary:
 one or two sentences on where the current item stands.
 
+For request_user_feedback, you may address a specific human participant by
+setting ask_participant_id to their id. Only human participants can answer.
+
 Return ONLY a JSON object:
 
 {
@@ -79,7 +89,8 @@ Return ONLY a JSON object:
     "reason": "Explanation",
     "question_for_user": "",
     "agenda_summary": "",
-    "target_agenda_id": ""
+    "target_agenda_id": "",
+    "ask_participant_id": ""
 }
 """
 
@@ -153,11 +164,21 @@ Return ONLY a JSON object:
     if action != "revisit_agenda":
         target_id = ""
 
+    ask_id = str(result.get("ask_participant_id") or "")
+    humans = {
+        participant["id"]
+        for participant in state.get("participants", [])
+        if participant.get("is_human")
+    }
+    if action != "request_user_feedback" or ask_id not in humans:
+        ask_id = ""
+
     return {
         "moderator_action": action,
         "moderator_reasoning": reason,
         "moderator_question": question,
         "moderator_target_agenda_id": target_id,
+        "moderator_ask_participant_id": ask_id,
         "agenda_summary": agenda_summary,
         "pending_user_input": action == "request_user_feedback",
         "current_phase": PHASES[action],

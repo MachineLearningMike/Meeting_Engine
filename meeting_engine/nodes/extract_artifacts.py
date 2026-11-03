@@ -20,7 +20,12 @@ from ..schemas import (
     UnresolvedIssueStatus,
     check_transition,
 )
-from .common import get_model, invoke_text, parse_json_object
+from .common import (
+    get_model,
+    invoke_text,
+    parse_json_object,
+    participants_overview,
+)
 
 
 ARTIFACT_FIELDS = {
@@ -52,6 +57,14 @@ ARTIFACT_FIELDS = {
 }
 
 ARGUMENT_TARGET_TYPES = set(get_args(ArgumentTargetType))
+
+# Fields naming a participant. Decisions may only be approved by a human.
+PARTICIPANT_FIELDS = {
+    "proposals": "created_by",
+    "arguments": "author_id",
+    "decisions": "approved_by",
+    "action_items": "owner_id",
+}
 
 
 def validate_artifacts(data: dict[str, Any]) -> dict[str, list[dict]]:
@@ -199,6 +212,7 @@ def resolve_extraction(
     current_state: dict[str, list[dict]],
     meeting_id: str,
     agenda_ids: list[str] | None = None,
+    participants: list[dict] | None = None,
 ) -> tuple[dict[str, list[dict]], list[ArtifactUpdate], list[str]]:
     """Turn the extractor's output into new artifacts, updates and warnings.
 
@@ -210,6 +224,9 @@ def resolve_extraction(
 
     With agenda_ids, each new item's agenda_id must be one of them; with a
     single agenda item, items without one are assigned to it.
+
+    With participants, authors and owners must be participant ids, and
+    approved_by must be a human participant. Other values are removed.
     """
 
     artifacts = validate_artifacts(data)
@@ -260,6 +277,24 @@ def resolve_extraction(
                         f"{agenda_id!r}; it was removed."
                     )
                     item.pop("agenda_id")
+
+            person_field = PARTICIPANT_FIELDS.get(field)
+            person = item.get(person_field) if person_field else None
+
+            if participants and person:
+                allowed = {
+                    p["id"]
+                    for p in participants
+                    if field != "decisions" or p.get("is_human")
+                }
+                if person not in allowed:
+                    warnings.append(
+                        f"New {field} item {text!r} has {person_field} "
+                        f"{person!r}, which is not "
+                        + ("a human participant" if field == "decisions" else "a participant")
+                        + "; it was removed."
+                    )
+                    item.pop(person_field)
 
             item["created_in_meeting"] = meeting_id
             item["updated_in_meeting"] = meeting_id
@@ -324,6 +359,7 @@ def extract_meeting_artifacts(
             {"id": item["id"], "description": item.get("description", "")}
             for item in agenda
         ],
+        "participants": participants_overview(state),
         "meeting_summary": state.get("meeting_summary", ""),
         "existing_artifacts": compact_state(current_state),
         "conversation": [
@@ -360,12 +396,16 @@ Use it to refer to that new item from an argument or an update.
 Every new item should include "agenda_id": the id of the agenda item in
 agenda_items that it belongs to.
 
+created_by, author_id, owner_id and approved_by hold a participant id from
+participants, or null if unknown. Only a human participant can approve a
+decision.
+
 proposals:
 {
   "ref": "p1",
   "description": "Proposal description",
   "status": "proposed",
-  "created_by": "AI or human"
+  "created_by": null
 }
 
 Valid status:
@@ -377,7 +417,8 @@ arguments:
   "target_type": "proposal",
   "position": "support",
   "content": "Argument",
-  "reasoning": ""
+  "reasoning": "",
+  "author_id": null
 }
 
 Valid target_type:
@@ -391,7 +432,8 @@ decisions:
   "ref": "d1",
   "description": "Decision description",
   "basis": "Reason for decision",
-  "status": "provisional"
+  "status": "provisional",
+  "approved_by": null
 }
 
 Valid status:
@@ -464,6 +506,7 @@ IMPORTANT RULES:
             current_state,
             meeting_id,
             agenda_ids=[item["id"] for item in agenda],
+            participants=state.get("participants", []),
         )
         extraction_error = ""
     except (ValueError, json.JSONDecodeError) as error:

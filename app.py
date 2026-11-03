@@ -9,6 +9,7 @@ meeting. Model, project and round limit are set in the chat settings panel.
 """
 
 import os
+import re
 import uuid
 
 import chainlit as cl
@@ -125,6 +126,42 @@ def format_artifacts(update: dict) -> str:
     return "\n".join(lines).strip()
 
 
+def parse_participants(text: str) -> list[dict]:
+    """Read "Name: role" lines. The person using the app joins as a human."""
+
+    participants = []
+
+    for line in (text or "").splitlines():
+        name, _, role = line.partition(":")
+        name = name.strip()
+
+        if not name:
+            continue
+
+        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "participant"
+        participant_id = slug
+        suffix = 2
+        while any(p["id"] == participant_id for p in participants):
+            participant_id = f"{slug}-{suffix}"
+            suffix += 1
+
+        participants.append({
+            "id": participant_id,
+            "name": name,
+            "role": role.strip() or name.lower(),
+        })
+
+    if participants:
+        participants.append({
+            "id": "user",
+            "name": "You",
+            "role": "human participant",
+            "is_human": True,
+        })
+
+    return participants
+
+
 def get_model():
     """Build the chat model for the current settings, reusing it if unchanged."""
 
@@ -198,10 +235,12 @@ async def run_meeting(graph_input) -> None:
 
     if snapshot.interrupts:
         cl.user_session.set("phase", "awaiting_feedback")
-        question = snapshot.interrupts[0].value.get("question", "")
+        payload = snapshot.interrupts[0].value
+        asked = payload.get("participant")
+        addressee = f" {asked['name']}" if asked and asked["id"] != "user" else ""
 
         await cl.Message(
-            content=f"**Moderator asks:** {question}",
+            content=f"**Moderator asks{addressee}:** {payload.get('question', '')}",
             actions=[
                 cl.Action(
                     name="decline_feedback",
@@ -245,6 +284,16 @@ async def start() -> None:
                 id="project_id",
                 label="Project ID (optional)",
                 initial="",
+            ),
+            TextInput(
+                id="participants",
+                label="AI participants (one per line, 'Name: role')",
+                initial="",
+                placeholder=(
+                    "Researcher: develops alternative strategies\n"
+                    "Risk analyst: identifies risks"
+                ),
+                multiline=True,
             ),
             Slider(
                 id="max_rounds",
@@ -305,6 +354,7 @@ async def on_message(message: cl.Message) -> None:
             {"id": new_id(), "description": description}
             for description in (items or [topic])
         ],
+        "participants": parse_participants(settings.get("participants", "")),
         "max_rounds_per_agenda": int(settings["max_rounds"]),
     })
 

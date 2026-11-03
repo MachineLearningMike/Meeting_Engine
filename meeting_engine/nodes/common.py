@@ -4,9 +4,29 @@ from typing import Any
 from langchain_core.messages import SystemMessage, HumanMessage
 
 
-def get_model(config: dict):
-    """Retrieve the chat model injected into the graph configuration."""
+def get_model(config: dict, participant: dict | None = None):
+    """Retrieve the chat model injected into the graph configuration.
+
+    A participant with a "model" key uses
+    configurable["participant_models"][key]; everything else uses
+    configurable["meeting_model"].
+    """
     configurable = config.get("configurable", {})
+
+    model_key = (participant or {}).get("model")
+
+    if model_key:
+        model = configurable.get("participant_models", {}).get(model_key)
+
+        if model is None:
+            raise ValueError(
+                f"Participant {participant.get('id')!r} uses model "
+                f"{model_key!r}, which is not in "
+                "configurable['participant_models']."
+            )
+
+        return model
+
     model = configurable.get("meeting_model")
 
     if model is None:
@@ -16,6 +36,19 @@ def get_model(config: dict):
         )
 
     return model
+
+
+def participants_overview(state: dict) -> list[dict]:
+    """The participants in the compact form used in prompts."""
+    return [
+        {
+            "id": participant["id"],
+            "name": participant.get("name", participant["id"]),
+            "role": participant.get("role", ""),
+            "is_human": participant.get("is_human", False),
+        }
+        for participant in state.get("participants", [])
+    ]
 
 
 def agenda_overview(state: dict) -> list[dict]:
@@ -41,11 +74,13 @@ def invoke_text(
     system_prompt: str,
     human_prompt: str,
     node: str,
+    participant: str | None = None,
 ) -> str:
     """Invoke any LangChain-compatible chat model and return text.
 
-    The call is tagged "meeting:<node>" so callbacks, tracing and test models
-    can tell which meeting node made it.
+    The call is tagged "meeting:<node>" (and "participant:<id>" for a
+    participant's turn) so callbacks, tracing and test models can tell which
+    meeting node made it.
     """
 
     response = model.invoke(
@@ -53,7 +88,9 @@ def invoke_text(
             SystemMessage(content=system_prompt),
             HumanMessage(content=human_prompt),
         ],
-        config={"tags": [f"meeting:{node}"]},
+        config={"tags": [f"meeting:{node}"] + (
+            [f"participant:{participant}"] if participant else []
+        )},
     )
 
     content = response.content

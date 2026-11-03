@@ -84,10 +84,20 @@ def check_transition(artifact_type: str, current: str | None, new: str) -> None:
 
 
 class Participant(TypedDict, total=False):
+    """A meeting participant.
+
+    Non-human participants speak in every deliberation round. "instructions"
+    adds to their prompt, and "model" names an entry in
+    configurable["participant_models"]. Human participants answer the
+    moderator's questions.
+    """
+
     id: str
     name: str
     role: str
     description: str
+    instructions: str
+    model: str
     is_human: bool
 
 

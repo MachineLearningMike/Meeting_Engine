@@ -9,9 +9,23 @@ def collect_human_feedback(state: dict) -> dict:
         "What is your assessment of the discussion?",
     )
 
+    asked = next(
+        (
+            participant
+            for participant in state.get("participants", [])
+            if participant["id"] == state.get("moderator_ask_participant_id")
+        ),
+        None,
+    )
+
     response = interrupt({
         "type": "human_feedback",
         "question": question,
+        "participant": (
+            {"id": asked["id"], "name": asked.get("name", asked["id"])}
+            if asked
+            else None
+        ),
         "agenda": state.get("current_agenda", ""),
         "latest_deliberation": state.get("latest_deliberation", ""),
     })
@@ -31,6 +45,13 @@ def collect_human_feedback(state: dict) -> dict:
         "pending_user_input": False,
         "current_phase": "analysis",
         "messages": [
-            HumanMessage(content=feedback)
+            HumanMessage(
+                content=(
+                    f"[{asked.get('name', asked['id'])}] {feedback}"
+                    if asked
+                    else feedback
+                ),
+                name=asked["id"] if asked else None,
+            )
         ],
     }

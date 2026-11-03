@@ -15,6 +15,20 @@ def new_id() -> str:
     return str(uuid4())
 
 
+# Allowed values, shared with runtime validation in nodes/extract_artifacts.py.
+Priority = Literal["low", "medium", "high", "critical"]
+ObjectiveStatus = Literal["active", "achieved", "deferred", "cancelled"]
+ProblemStatus = Literal["open", "investigating", "blocked", "resolved", "deferred"]
+ProposalStatus = Literal[
+    "proposed", "under_discussion", "accepted", "rejected", "deferred"
+]
+ArgumentTargetType = Literal["proposal", "problem", "decision"]
+ArgumentPosition = Literal["support", "oppose", "neutral"]
+DecisionStatus = Literal["provisional", "approved", "rejected", "superseded"]
+ActionItemStatus = Literal["pending", "in_progress", "completed", "cancelled"]
+UnresolvedIssueStatus = Literal["open", "deferred", "resolved"]
+
+
 class Participant(TypedDict, total=False):
     id: str
     name: str
@@ -26,16 +40,16 @@ class Participant(TypedDict, total=False):
 class MeetingObjective(TypedDict, total=False):
     id: str
     description: str
-    priority: Literal["low", "medium", "high", "critical"]
-    status: Literal["active", "achieved", "deferred", "cancelled"]
+    priority: Priority
+    status: ObjectiveStatus
     success_criteria: list[str]
 
 
 class MeetingProblem(TypedDict, total=False):
     id: str
     description: str
-    priority: Literal["low", "medium", "high", "critical"]
-    status: Literal["open", "investigating", "blocked", "resolved", "deferred"]
+    priority: Priority
+    status: ProblemStatus
     related_objective_ids: list[str]
     constraints: list[str]
     hypotheses: list[str]
@@ -45,9 +59,7 @@ class Proposal(TypedDict, total=False):
     id: str
     problem_id: str
     description: str
-    status: Literal[
-        "proposed", "under_discussion", "accepted", "rejected", "deferred"
-    ]
+    status: ProposalStatus
     supporting_argument_ids: list[str]
     opposing_argument_ids: list[str]
     evidence: list[str]
@@ -57,8 +69,8 @@ class Proposal(TypedDict, total=False):
 class Argument(TypedDict, total=False):
     id: str
     target_id: str
-    target_type: Literal["proposal", "problem", "decision"]
-    position: Literal["support", "oppose", "neutral"]
+    target_type: ArgumentTargetType
+    position: ArgumentPosition
     content: str
     reasoning: str
     evidence: list[str]
@@ -69,7 +81,7 @@ class Decision(TypedDict, total=False):
     id: str
     description: str
     basis: str
-    status: Literal["provisional", "approved", "rejected", "superseded"]
+    status: DecisionStatus
     related_problem_ids: list[str]
     related_proposal_ids: list[str]
     approved_by: Optional[str]
@@ -81,7 +93,7 @@ class ActionItem(TypedDict, total=False):
     description: str
     owner_id: Optional[str]
     due_date: Optional[datetime]
-    status: Literal["pending", "in_progress", "completed", "cancelled"]
+    status: ActionItemStatus
     related_decision_id: Optional[str]
 
 
@@ -91,7 +103,7 @@ class UnresolvedIssue(TypedDict, total=False):
     reason_unresolved: str
     next_step: str
     related_problem_id: Optional[str]
-    status: Literal["open", "deferred", "resolved"]
+    status: UnresolvedIssueStatus
 
 
 def make_problem(description: str, **fields: object) -> MeetingProblem:
@@ -109,3 +121,16 @@ def make_proposal(problem_id: str, description: str, **fields: object) -> Propos
         "description": description,
         **fields,
     }
+
+
+class MeetingRecord(TypedDict, total=False):
+    meeting_id: str
+    project_id: str
+    topic: str
+    agenda: str
+    proposals: list[Proposal]
+    arguments: list[Argument]
+    decisions: list[Decision]
+    action_items: list[ActionItem]
+    unresolved_issues: list[UnresolvedIssue]
+    extraction_error: str

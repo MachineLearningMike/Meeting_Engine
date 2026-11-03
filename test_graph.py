@@ -3,6 +3,8 @@ from langgraph.types import Command
 
 from meeting_engine import build_meeting_graph
 
+from meeting_engine.storage import MeetingStore
+
 
 def main():
 
@@ -60,6 +62,42 @@ def main():
         Unresolved issues:
         Determine the optimal policy and evaluate transaction costs.
         """,
+
+        """
+        {
+            "proposals": [
+                {
+                    "description": "Develop an adaptive trading-frequency policy.",
+                    "status": "proposed",
+                    "created_by": "AI"
+                }
+            ],
+            "arguments": [
+                {
+                    "target_type": "proposal",
+                    "position": "support",
+                    "content": "Adaptive frequency may reduce unnecessary trades.",
+                    "reasoning": "Trading frequency can respond to market opportunities."
+                }
+            ],
+            "decisions": [],
+            "action_items": [],
+            "unresolved_issues": [
+                {
+                    "description": "Determine the optimal adaptive trading-frequency policy.",
+                    "reason_unresolved": "The policy has not yet been developed or evaluated.",
+                    "next_step": "Develop and backtest candidate policies.",
+                    "status": "open"
+                },
+                {
+                    "description": "Evaluate transaction costs.",
+                    "reason_unresolved": "The transaction-cost impact has not yet been quantified.",
+                    "next_step": "Include transaction costs in backtesting.",
+                    "status": "open"
+                }
+            ]
+        }
+        """
     ]
 
     model = FakeListChatModel(responses=responses)
@@ -74,6 +112,7 @@ def main():
     }
 
     initial_state = {
+        "project_id": "trading-ai",
         "topic": "Adaptive trading frequency",
         "background": "The trading system generates too many trades.",
         "problems": [
@@ -88,25 +127,71 @@ def main():
 
     print("Starting meeting...")
 
-    result = graph.invoke(initial_state, config=config)
+    # Start meeting
+    result = graph.invoke(initial_state, config)
 
-    while result.get("__interrupt__"):
+    # Display moderator question and collect feedback
+    # ...
 
-        for interruption in result["__interrupt__"]:
-            print("\nModerator:")
-            print(interruption.value["question"])
+    # Resume meeting
 
-        feedback = input("\nYour feedback: ")
+    user_feedback = input("\nYour feedback: ")
 
-        result = graph.invoke(
-            Command(
-                resume={"feedback": feedback}
-            ),
-            config=config,
-        )
+    result = graph.invoke(
+        Command(resume=user_feedback),
+        config
+    )
+
+    # Persist completed meeting
+    store = MeetingStore()
+
+    record = result["meeting_record"]
+
+    assert record["project_id"] == "trading-ai"
+    assert not result.get("extraction_error")
+
+    store.save(record)
+
+    print("\nMeeting saved to SQLite.")
+
+
+    loaded_record = store.get(record["meeting_id"])
+
+    assert loaded_record is not None
+    assert loaded_record["meeting_id"] == record["meeting_id"]
+
+    print("Persistence verification passed.")
+
+    project_meetings = store.list_meetings("trading-ai")
+
+    print("\nMeetings in trading-ai:", len(project_meetings))
+
+    for meeting in project_meetings:
+        print(meeting["meeting_id"], meeting["topic"])
+
 
     print("\nMeeting completed.")
     print(result.get("meeting_summary", ""))
+
+    # Inspect structured artifacts AFTER completion
+    print("\n===== STRUCTURED MEETING RECORD =====")
+
+    record = result.get("meeting_record", {})
+
+    for key, value in record.items():
+        print(f"\n{key}:")
+        print(value)
+
+    print("\n===== ARTIFACT COUNTS =====")
+
+    for key in (
+        "proposals",
+        "arguments",
+        "decisions",
+        "action_items",
+        "unresolved_issues",
+    ):
+        print(f"{key}: {len(result.get(key, []))}")
 
 
 if __name__ == "__main__":

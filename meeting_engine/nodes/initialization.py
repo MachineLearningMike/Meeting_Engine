@@ -4,10 +4,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 
 def initialize_meeting(state: dict) -> dict:
-    import uuid
-
-    from langchain_core.messages import SystemMessage, HumanMessage
-
     meeting_id = state.get("meeting_id") or str(uuid.uuid4())
 
     problems = state.get("problems", [])

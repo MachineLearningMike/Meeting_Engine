@@ -1,14 +1,31 @@
+import argparse
+import os
+
+from langchain.chat_models import init_chat_model
 from langgraph.types import Command
-from langchain_openai import ChatOpenAI
 
 from meeting_engine.graph import build_meeting_graph
 
 
+DEFAULT_MODEL = "openai:gpt-4o"
+
+
 def main():
-    model = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0,
+    parser = argparse.ArgumentParser(description="Run a meeting.")
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("MEETING_MODEL", DEFAULT_MODEL),
+        help=(
+            "Chat model as 'provider:model', e.g. openai:gpt-4o, "
+            "anthropic:claude-sonnet-5-5, ollama:llama3.1. "
+            "Defaults to $MEETING_MODEL or " + DEFAULT_MODEL + "."
+        ),
     )
+    args = parser.parse_args()
+
+    # The provider package (langchain-openai, langchain-anthropic, ...)
+    # is imported only for the provider actually selected.
+    model = init_chat_model(args.model, temperature=0)
 
     graph = build_meeting_graph()
 

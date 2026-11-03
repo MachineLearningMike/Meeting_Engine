@@ -92,7 +92,14 @@ Return ONLY a JSON object:
             "question_for_user": "",
         }
 
-    if round_count >= max_rounds and action == "continue_discussion":
+    if (
+        action == "request_user_feedback"
+        and state.get("user_declined_feedback", False)
+    ):
+        action = "continue_discussion"
+
+    # The round limit also bounds feedback requests, which re-enter deliberation.
+    if round_count >= max_rounds:
         action = "conclude_meeting"
 
     reason = result.get("reason", "")

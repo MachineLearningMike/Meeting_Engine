@@ -1,3 +1,8 @@
-langchain>=0.3.0
-langgraph>=0.2.0
-pydantic>=2.7.0
+langchain>=1.0.0
+langgraph>=1.0.0
+
+# Model providers are optional. Install the one(s) you use with main.py --model:
+#   langchain-openai        openai:gpt-4o
+#   langchain-anthropic     anthropic:claude-sonnet-5-5
+#   langchain-ollama        ollama:llama3.1
+#   langchain-google-genai  google_genai:gemini-2.5-pro

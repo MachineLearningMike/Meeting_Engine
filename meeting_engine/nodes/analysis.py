@@ -48,6 +48,7 @@ Be precise and concise.
     analysis = invoke_text(
         model=model,
         system_prompt=system_prompt,
+        node="analysis",
         human_prompt=prompt,
     )
 

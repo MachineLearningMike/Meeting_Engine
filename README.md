@@ -23,9 +23,11 @@ Meeting_Engine/
 │       ├── human_feedback.py
 │       ├── finalize.py
 │       └── extract_artifacts.py
-├── test_graph.py
-├── test_state.py
-└── test_storage.py
+└── tests/
+    ├── fakes.py             # Scripted test model, answers per node
+    ├── test_graph.py
+    ├── test_artifacts.py
+    └── test_storage.py
 ```
 
 ## Meeting flow
@@ -68,6 +70,15 @@ python main.py --model ollama:llama3.1
 ```
 
 `MEETING_MODEL` can be set instead of `--model`.
+
+### Tests
+
+```bash
+pytest
+```
+
+The tests use a scripted model and temporary databases, so they need no API
+key or input.
 
 ### Web chat UI
 

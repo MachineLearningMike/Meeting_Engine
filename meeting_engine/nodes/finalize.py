@@ -50,6 +50,7 @@ Important rules:
     summary = invoke_text(
         model=model,
         system_prompt=system_prompt,
+        node="finalize",
         human_prompt=json.dumps(
             context,
             ensure_ascii=False,

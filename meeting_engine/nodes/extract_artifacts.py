@@ -216,6 +216,7 @@ IMPORTANT RULES:
     raw = invoke_text(
         model=model,
         system_prompt=system_prompt,
+        node="extraction",
         human_prompt=json.dumps(
             context,
             ensure_ascii=False,

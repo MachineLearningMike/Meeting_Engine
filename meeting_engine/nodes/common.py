@@ -22,13 +22,21 @@ def invoke_text(
     model: Any,
     system_prompt: str,
     human_prompt: str,
+    node: str,
 ) -> str:
-    """Invoke any LangChain-compatible chat model and return text."""
+    """Invoke any LangChain-compatible chat model and return text.
 
-    response = model.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=human_prompt),
-    ])
+    The call is tagged "meeting:<node>" so callbacks, tracing and test models
+    can tell which meeting node made it.
+    """
+
+    response = model.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=human_prompt),
+        ],
+        config={"tags": [f"meeting:{node}"]},
+    )
 
     content = response.content
 

@@ -49,6 +49,7 @@ Be analytical and concise.
     contribution = invoke_text(
         model=model,
         system_prompt=system_prompt,
+        node="deliberation",
         human_prompt=json.dumps(
             context,
             ensure_ascii=False,

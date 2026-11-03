@@ -64,6 +64,7 @@ Return ONLY a JSON object:
     raw_response = invoke_text(
         model=model,
         system_prompt=system_prompt,
+        node="moderator",
         human_prompt=json.dumps(
             context,
             ensure_ascii=False,

@@ -10,11 +10,17 @@ from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 
-def moderator_reply(action: str, question: str = "", reason: str = "test") -> str:
+def moderator_reply(
+    action: str,
+    question: str = "",
+    reason: str = "test",
+    **fields: str,
+) -> str:
     return json.dumps({
         "action": action,
         "reason": reason,
         "question_for_user": question,
+        **fields,
     })
 
 

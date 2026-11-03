@@ -198,6 +198,7 @@ def resolve_extraction(
     data: dict[str, Any],
     current_state: dict[str, list[dict]],
     meeting_id: str,
+    agenda_ids: list[str] | None = None,
 ) -> tuple[dict[str, list[dict]], list[ArtifactUpdate], list[str]]:
     """Turn the extractor's output into new artifacts, updates and warnings.
 
@@ -206,6 +207,9 @@ def resolve_extraction(
     are dropped, and their ref points at the existing artifact instead.
     Invalid updates and unknown argument targets are dropped with a warning
     rather than failing the whole extraction.
+
+    With agenda_ids, each new item's agenda_id must be one of them; with a
+    single agenda item, items without one are assigned to it.
     """
 
     artifacts = validate_artifacts(data)
@@ -244,6 +248,18 @@ def resolve_extraction(
                 if ref:
                     refs[str(ref)] = (field, existing_id)
                 continue
+
+            if agenda_ids:
+                agenda_id = item.get("agenda_id")
+
+                if not agenda_id and len(agenda_ids) == 1:
+                    item["agenda_id"] = agenda_ids[0]
+                elif agenda_id and agenda_id not in agenda_ids:
+                    warnings.append(
+                        f"New {field} item {text!r} has unknown agenda_id "
+                        f"{agenda_id!r}; it was removed."
+                    )
+                    item.pop("agenda_id")
 
             item["created_in_meeting"] = meeting_id
             item["updated_in_meeting"] = meeting_id
@@ -299,11 +315,15 @@ def extract_meeting_artifacts(
 
     meeting_id = state.get("meeting_id", "")
     current_state = state.get("project_context", {}).get("current_state", {})
+    agenda = state.get("agenda", [])
 
     context = {
         "meeting_id": meeting_id,
         "topic": state.get("topic", ""),
-        "agenda": state.get("current_agenda", ""),
+        "agenda_items": [
+            {"id": item["id"], "description": item.get("description", "")}
+            for item in agenda
+        ],
         "meeting_summary": state.get("meeting_summary", ""),
         "existing_artifacts": compact_state(current_state),
         "conversation": [
@@ -336,6 +356,9 @@ SCHEMAS:
 
 Any new item may include "ref": a short temporary name such as "p1" or "d1".
 Use it to refer to that new item from an argument or an update.
+
+Every new item should include "agenda_id": the id of the agenda item in
+agenda_items that it belongs to.
 
 proposals:
 {
@@ -440,6 +463,7 @@ IMPORTANT RULES:
             parse_json_object(raw),
             current_state,
             meeting_id,
+            agenda_ids=[item["id"] for item in agenda],
         )
         extraction_error = ""
     except (ValueError, json.JSONDecodeError) as error:
@@ -452,7 +476,8 @@ IMPORTANT RULES:
         "meeting_id": meeting_id,
         "project_id": state.get("project_id", ""),
         "topic": state.get("topic", ""),
-        "agenda": state.get("current_agenda", ""),
+        "agenda": "; ".join(item.get("description", "") for item in agenda),
+        "agenda_items": agenda,
         "meeting_summary": state.get("meeting_summary", ""),
         **artifacts,
         "artifact_updates": updates,

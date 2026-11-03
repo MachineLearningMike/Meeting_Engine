@@ -18,6 +18,7 @@ Meeting_Engine/
 │   ├── storage.py           # SQLite: meeting records + current project state
 │   └── nodes/
 │       ├── initialization.py
+│       ├── agenda.py
 │       ├── analysis.py
 │       ├── deliberation.py
 │       ├── moderator.py
@@ -27,6 +28,7 @@ Meeting_Engine/
 │       └── extract_artifacts.py
 └── tests/
     ├── fakes.py             # Scripted test model, answers per node
+    ├── test_agenda.py
     ├── test_graph.py
     ├── test_artifacts.py
     ├── test_history.py
@@ -38,31 +40,32 @@ Meeting_Engine/
 ```text
 START
   |
-initialize
+initialize               (agenda from input, or from problems + objectives)
   |
 load_project_memory      (current state + past meetings, if a store is given)
   |
-analyze_context
-  |
-deliberate
-  |
-moderate
-  |
-  +---- continue ------> deliberate
-  |
-  +---- request input -> interrupt
-  |                         |
-  |                       resume
-  |                         |
-  |                    analyze_context
-  |
-  +---- conclude ------> finalize
-                            |
-                     extract_artifacts
-                            |
-                       save_meeting     (if a store is given)
-                            |
-                           END
+analyze_context  <-------------------------------+
+  |                                              |
+deliberate  <-----------+                        |
+  |                     |                        |
+moderate                |                        |
+  |                     |                        |
+  +-- continue ---------+                        |
+  |                                              |
+  +-- request input --> interrupt --> resume ----+
+  |                                              |
+  +-- conclude / defer / revisit agenda item     |
+  |       --> advance_agenda --- next item ------+
+  |                 |
+  |            no items left
+  |                 |
+  +-- conclude meeting --> finalize
+                              |
+                       extract_artifacts
+                              |
+                         save_meeting     (if a store is given)
+                              |
+                             END
 ```
 
 ## Running

@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
 from ..history import PROJECT_CONTEXT_RULES, prompt_context
-from .common import get_model, invoke_text
+from .common import agenda_overview, get_model, invoke_text
 
 
 def deliberate(
@@ -16,6 +16,7 @@ def deliberate(
     context = {
         "topic": state.get("topic", ""),
         "current_agenda": state.get("current_agenda", ""),
+        "agenda": agenda_overview(state),
         "context_analysis": state.get("context_analysis", ""),
         "user_feedback": state.get("user_feedback", ""),
         "round_count": state.get("round_count", 0),
@@ -29,7 +30,8 @@ def deliberate(
     system_prompt = """
 You are a reasoning participant in a structured meeting.
 
-Analyze the current agenda and contribute substantive reasoning.
+Analyze the current agenda item and contribute substantive reasoning.
+Focus on the current item; use summaries of other agenda items only as context.
 
 Identify:
 1. Main analysis.
@@ -70,6 +72,7 @@ Be analytical and concise.
     return {
         "latest_deliberation": contribution,
         "round_count": round_count,
+        "total_rounds": state.get("total_rounds", 0) + 1,
         "current_phase": "deliberation",
         "messages": [
             AIMessage(

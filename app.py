@@ -26,6 +26,7 @@ DEFAULT_MODEL = os.environ.get("MEETING_MODEL", "openai:gpt-4o")
 STEP_NAMES = {
     "initialize": "Agenda",
     "load_project_memory": "Project memory",
+    "advance_agenda": "Next agenda item",
     "analyze_context": "Context analysis",
     "deliberate": "Deliberation",
     "moderate": "Moderator",
@@ -48,7 +49,15 @@ store = MeetingStore()
 
 def format_step(node: str, update: dict) -> str:
     if node == "initialize":
-        return f"Agenda: {update.get('current_agenda', '')}"
+        return "\n".join(
+            f"{index}. {item['description']}"
+            for index, item in enumerate(update.get("agenda", []), start=1)
+        )
+
+    if node == "advance_agenda":
+        if update.get("agenda_complete"):
+            return "All agenda items handled."
+        return f"Now discussing: {update.get('current_agenda', '')}"
 
     if node == "load_project_memory":
         context = update.get("project_context")
@@ -254,8 +263,9 @@ async def start() -> None:
     await cl.Message(
         content=(
             "What should this meeting be about?\n\n"
-            "Put the topic on the first line. Anything below it is used "
-            "as background."
+            "Put the topic on the first line. Lines starting with `- ` "
+            "become agenda items; anything else below the topic is "
+            "background."
         )
     ).send()
 
@@ -277,17 +287,24 @@ async def on_message(message: cl.Message) -> None:
         await cl.Message(content="The meeting is still running.").send()
         return
 
-    topic, _, background = message.content.strip().partition("\n")
+    topic, _, rest = message.content.strip().partition("\n")
+    topic = topic.strip()
+    lines = [line.strip() for line in rest.splitlines()]
+
+    items = [line[2:].strip() for line in lines if line.startswith("- ")]
+    background = "\n".join(line for line in lines if not line.startswith("- "))
     settings = cl.user_session.get("settings")
 
     cl.user_session.set("thread_id", str(uuid.uuid4()))
 
     await run_meeting({
         "project_id": settings["project_id"].strip(),
-        "topic": topic.strip(),
+        "topic": topic,
         "background": background.strip(),
-        "problems": [{"id": new_id(), "description": topic.strip()}],
-        "objectives": [],
+        "agenda": [
+            {"id": new_id(), "description": description}
+            for description in (items or [topic])
+        ],
         "max_rounds_per_agenda": int(settings["max_rounds"]),
     })
 

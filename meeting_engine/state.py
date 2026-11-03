@@ -10,6 +10,7 @@ from langgraph.graph.message import add_messages
 
 from .schemas import (
     ActionItem,
+    AgendaItem,
     Argument,
     Decision,
     MeetingObjective,
@@ -52,16 +53,24 @@ class MeetingState(TypedDict, total=False):
     extraction_warnings: list[str]
     meeting_saved: bool
 
+    # Agenda
+    agenda: list[AgendaItem]
+    agenda_complete: bool
+
     # Deliberation control
     current_phase: str
     current_agenda_id: str
     current_agenda: str
     round_count: int
+    total_rounds: int
     max_rounds_per_agenda: int
+    max_total_rounds: int
     pending_user_input: bool
     moderator_action: str
     moderator_question: str
     moderator_reasoning: str
+    moderator_target_agenda_id: str
+    agenda_summary: str
     user_feedback: str
     user_declined_feedback: bool
 

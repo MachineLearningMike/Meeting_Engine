@@ -3,7 +3,7 @@ from langchain_core.runnables import RunnableConfig
 import json
 
 from ..history import PROJECT_CONTEXT_RULES, prompt_context
-from .common import get_model, invoke_text
+from .common import agenda_overview, get_model, invoke_text
 
 
 def analyze_context(
@@ -19,6 +19,7 @@ def analyze_context(
         "objectives": state.get("objectives", []),
         "problems": state.get("problems", []),
         "current_agenda": state.get("current_agenda", ""),
+        "agenda": agenda_overview(state),
         "user_feedback": state.get("user_feedback", ""),
         "recent_messages": [
             message.content

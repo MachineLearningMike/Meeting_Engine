@@ -18,6 +18,19 @@ def get_model(config: dict):
     return model
 
 
+def agenda_overview(state: dict) -> list[dict]:
+    """The agenda in the compact form used in prompts."""
+    return [
+        {
+            "id": item["id"],
+            "description": item.get("description", ""),
+            "status": item.get("status", ""),
+            "summary": item.get("summary", ""),
+        }
+        for item in state.get("agenda", [])
+    ]
+
+
 def get_store(config: dict):
     """Return the meeting store injected into the configuration, if any."""
     return config.get("configurable", {}).get("meeting_store")

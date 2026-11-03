@@ -27,6 +27,7 @@ ArgumentPosition = Literal["support", "oppose", "neutral"]
 DecisionStatus = Literal["provisional", "approved", "rejected", "superseded"]
 ActionItemStatus = Literal["pending", "in_progress", "completed", "cancelled"]
 UnresolvedIssueStatus = Literal["open", "deferred", "resolved"]
+AgendaStatus = Literal["pending", "active", "concluded", "deferred"]
 
 # Record fields that hold project artifacts.
 ArtifactType = Literal[
@@ -90,6 +91,15 @@ class Participant(TypedDict, total=False):
     is_human: bool
 
 
+class AgendaItem(TypedDict, total=False):
+    id: str
+    description: str
+    source: Literal["problem", "objective", "agenda", "topic"]
+    status: AgendaStatus
+    round_count: int
+    summary: str
+
+
 class MeetingObjective(TypedDict, total=False):
     id: str
     description: str
@@ -117,6 +127,7 @@ class Proposal(TypedDict, total=False):
     opposing_argument_ids: list[str]
     evidence: list[str]
     created_by: str
+    agenda_id: str
     created_in_meeting: str
     updated_in_meeting: str
 
@@ -130,6 +141,7 @@ class Argument(TypedDict, total=False):
     reasoning: str
     evidence: list[str]
     author_id: str
+    agenda_id: str
     created_in_meeting: str
     updated_in_meeting: str
 
@@ -144,6 +156,7 @@ class Decision(TypedDict, total=False):
     approved_by: Optional[str]
     created_at: datetime
     superseded_by: Optional[str]
+    agenda_id: str
     created_in_meeting: str
     updated_in_meeting: str
 
@@ -155,6 +168,7 @@ class ActionItem(TypedDict, total=False):
     due_date: Optional[datetime]
     status: ActionItemStatus
     related_decision_id: Optional[str]
+    agenda_id: str
     created_in_meeting: str
     updated_in_meeting: str
 
@@ -166,6 +180,7 @@ class UnresolvedIssue(TypedDict, total=False):
     next_step: str
     related_problem_id: Optional[str]
     status: UnresolvedIssueStatus
+    agenda_id: str
     created_in_meeting: str
     updated_in_meeting: str
 
@@ -222,6 +237,7 @@ class MeetingRecord(TypedDict, total=False):
     project_id: str
     topic: str
     agenda: str
+    agenda_items: list[AgendaItem]
     meeting_summary: str
     proposals: list[Proposal]
     arguments: list[Argument]

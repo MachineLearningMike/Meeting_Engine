@@ -1,7 +1,8 @@
 # Meeting Engine
 
-A structured human-AI meeting. Start by sending the topic on the first line,
-with any background below it.
+A structured human-AI meeting. Start by sending the topic on the first line.
+Lines below it starting with `- ` become agenda items, discussed one at a
+time; other lines are background.
 
 Each stage (context analysis, deliberation, moderator) appears as a
 collapsible step. When the moderator needs your judgment, answer in the chat,

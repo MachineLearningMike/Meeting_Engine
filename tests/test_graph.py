@@ -124,7 +124,8 @@ def test_round_cap_bounds_continued_discussion():
     _, _, result = start(model, max_rounds_per_agenda=3)
 
     assert result["round_count"] == 3
-    assert result["moderator_action"] == "conclude_meeting"
+    assert result["moderator_action"] == "conclude_agenda"
+    assert result["agenda"][0]["status"] == "concluded"
 
 
 def test_invalid_moderator_output_continues_until_cap():

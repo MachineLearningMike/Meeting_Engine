@@ -3,7 +3,7 @@ import json
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
-from .common import get_model, invoke_text
+from .common import agenda_overview, get_model, invoke_text
 
 
 def finalize_meeting(
@@ -12,9 +12,18 @@ def finalize_meeting(
 ) -> dict:
     model = get_model(config)
 
+    # Close the item under discussion when the meeting ends early.
+    agenda = [dict(item) for item in state.get("agenda", [])]
+    for item in agenda:
+        if item.get("status") == "active":
+            item["status"] = "concluded"
+            item["round_count"] = state.get("round_count", 0)
+            if state.get("agenda_summary"):
+                item["summary"] = state["agenda_summary"]
+
     context = {
         "topic": state.get("topic", ""),
-        "agenda": state.get("current_agenda", ""),
+        "agenda": agenda_overview({"agenda": agenda}),
         "context_analysis": state.get("context_analysis", ""),
         "messages": [
             message.content
@@ -32,7 +41,7 @@ Use these sections:
 
 1. Meeting objective
 2. Background and established facts
-3. Main arguments and analysis
+3. Agenda items: for each, the discussion and its outcome
 4. Proposals discussed
 5. Decisions actually agreed upon
 6. Action items
@@ -45,6 +54,7 @@ Important rules:
 - If no decision was reached, explicitly say so.
 - Do not invent owners or deadlines for action items.
 - Preserve important disagreements.
+- Say which agenda items were deferred or not reached.
 """
 
     summary = invoke_text(
@@ -61,6 +71,7 @@ Important rules:
 
     return {
         "meeting_summary": summary,
+        "agenda": agenda,
         "current_phase": "completed",
         "pending_user_input": False,
         "messages": [

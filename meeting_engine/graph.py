@@ -4,6 +4,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from .state import MeetingState
 
 from .nodes.initialization import initialize_meeting
+from .nodes.agenda import advance_agenda
 from .nodes.analysis import analyze_context
 from .nodes.deliberation import deliberate
 from .nodes.moderator import moderate
@@ -23,10 +24,17 @@ def route_after_moderator(state: MeetingState) -> str:
     if action == "request_user_feedback":
         return "human_feedback"
 
+    if action in ("conclude_agenda", "defer_agenda", "revisit_agenda"):
+        return "advance_agenda"
+
     if action == "conclude_meeting":
         return "finalize"
 
     raise ValueError(f"Unknown moderator action: {action}")
+
+
+def route_after_agenda(state: MeetingState) -> str:
+    return "finalize" if state.get("agenda_complete") else "analyze_context"
 
 
 def build_meeting_graph(checkpointer=None):
@@ -49,6 +57,7 @@ def build_meeting_graph(checkpointer=None):
     builder.add_node("deliberate", deliberate)
     builder.add_node("moderate", moderate)
     builder.add_node("human_feedback", collect_human_feedback)
+    builder.add_node("advance_agenda", advance_agenda)
 
     # Define execution flow.
     builder.add_edge(START, "initialize")
@@ -67,6 +76,16 @@ def build_meeting_graph(checkpointer=None):
         {
             "deliberate": "deliberate",
             "human_feedback": "human_feedback",
+            "advance_agenda": "advance_agenda",
+            "finalize": "finalize",
+        },
+    )
+
+    builder.add_conditional_edges(
+        "advance_agenda",
+        route_after_agenda,
+        {
+            "analyze_context": "analyze_context",
             "finalize": "finalize",
         },
     )

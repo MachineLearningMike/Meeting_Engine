@@ -49,6 +49,29 @@ def load_project_context(
     }
 
 
+PROJECT_CONTEXT_RULES = """
+project_context, when present, describes earlier meetings of this project:
+- project_context.current_state is the authoritative, latest status of the
+  project's proposals, arguments, decisions, action items and issues.
+- project_context.history summarizes past meetings. It is background and may
+  describe things that have since changed.
+Build on existing items and refer to them by id. Do not re-propose them or
+rediscover what is already established.
+"""
+
+
+def prompt_context(project_context: ProjectContext | None) -> dict | None:
+    """Return the project context in the compact form used in prompts."""
+
+    if not project_context:
+        return None
+
+    return {
+        "current_state": compact_state(project_context.get("current_state", {})),
+        "history": project_context.get("history", []),
+    }
+
+
 def compact_state(current_state: dict[str, list[dict]]) -> dict[str, list[dict]]:
     """Reduce artifacts to id, text and status, for use in prompts."""
 

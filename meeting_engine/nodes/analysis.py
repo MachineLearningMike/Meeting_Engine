@@ -2,6 +2,7 @@ from langchain_core.runnables import RunnableConfig
 
 import json
 
+from ..history import PROJECT_CONTEXT_RULES, prompt_context
 from .common import get_model, invoke_text
 
 
@@ -26,8 +27,6 @@ def analyze_context(
         ],
     }
 
-    prompt = json.dumps(context, ensure_ascii=False, default=str)
-
     system_prompt = """
 You are an analytical assistant participating in a structured meeting.
 
@@ -45,11 +44,17 @@ Do not make decisions on behalf of participants.
 Be precise and concise.
 """
 
+    project_context = prompt_context(state.get("project_context"))
+
+    if project_context:
+        context["project_context"] = project_context
+        system_prompt += PROJECT_CONTEXT_RULES
+
     analysis = invoke_text(
         model=model,
         system_prompt=system_prompt,
         node="analysis",
-        human_prompt=prompt,
+        human_prompt=json.dumps(context, ensure_ascii=False, default=str),
     )
 
     return {

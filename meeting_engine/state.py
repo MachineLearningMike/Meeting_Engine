@@ -50,6 +50,7 @@ class MeetingState(TypedDict, total=False):
     meeting_record: MeetingRecord
     extraction_error: str
     extraction_warnings: list[str]
+    meeting_saved: bool
 
     # Deliberation control
     current_phase: str

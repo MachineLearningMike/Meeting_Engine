@@ -11,6 +11,7 @@ from .nodes.human_feedback import collect_human_feedback
 from .nodes.finalize import finalize_meeting
 
 from .nodes.extract_artifacts import extract_meeting_artifacts
+from .nodes.project_memory import load_project_memory, save_meeting
 
 
 def route_after_moderator(state: MeetingState) -> str:
@@ -34,12 +35,16 @@ def build_meeting_graph(checkpointer=None):
 
     The model is supplied at invocation time through:
         config["configurable"]["meeting_model"]
+
+    Optionally, a MeetingStorage in config["configurable"]["meeting_store"]
+    loads the project's memory at the start and saves the record at the end.
     """
 
     builder = StateGraph(MeetingState)
 
     # Register nodes.
     builder.add_node("initialize", initialize_meeting)
+    builder.add_node("load_project_memory", load_project_memory)
     builder.add_node("analyze_context", analyze_context)
     builder.add_node("deliberate", deliberate)
     builder.add_node("moderate", moderate)
@@ -47,12 +52,14 @@ def build_meeting_graph(checkpointer=None):
 
     # Define execution flow.
     builder.add_edge(START, "initialize")
-    builder.add_edge("initialize", "analyze_context")
+    builder.add_edge("initialize", "load_project_memory")
+    builder.add_edge("load_project_memory", "analyze_context")
     builder.add_edge("analyze_context", "deliberate")
     builder.add_edge("deliberate", "moderate")
 
     builder.add_node("finalize", finalize_meeting)
     builder.add_node("extract_artifacts", extract_meeting_artifacts)
+    builder.add_node("save_meeting", save_meeting)
 
     builder.add_conditional_edges(
         "moderate",
@@ -66,7 +73,8 @@ def build_meeting_graph(checkpointer=None):
 
     builder.add_edge("human_feedback", "analyze_context")
     builder.add_edge("finalize", "extract_artifacts")
-    builder.add_edge("extract_artifacts", END)
+    builder.add_edge("extract_artifacts", "save_meeting")
+    builder.add_edge("save_meeting", END)
 
     # Use in-memory checkpointing by default.
     if checkpointer is None:

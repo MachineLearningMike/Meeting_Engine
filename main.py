@@ -5,6 +5,7 @@ from langchain.chat_models import init_chat_model
 from langgraph.types import Command
 
 from meeting_engine.graph import build_meeting_graph
+from meeting_engine.storage import MeetingStore
 
 
 DEFAULT_MODEL = "openai:gpt-4o"
@@ -21,6 +22,11 @@ def main():
             "Defaults to $MEETING_MODEL or " + DEFAULT_MODEL + "."
         ),
     )
+    parser.add_argument(
+        "--project",
+        default="",
+        help="Project ID. Meetings of the same project share their memory.",
+    )
     args = parser.parse_args()
 
     # The provider package (langchain-openai, langchain-anthropic, ...)
@@ -33,10 +39,12 @@ def main():
         "configurable": {
             "thread_id": "meeting-001",
             "meeting_model": model,
+            "meeting_store": MeetingStore(),
         }
     }
 
     initial_state = {
+        "project_id": args.project,
         "topic": "Adaptive trading frequency",
         "background": "Our trading system generates too many trades.",
         "problems": [

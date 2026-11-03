@@ -357,23 +357,94 @@ def test_compact_state_keeps_id_text_and_status():
 # --- across meetings, through the graph --------------------------------------
 
 
-def run_meeting(store, extraction):
-    """Run one meeting with the project's context and save its record."""
+def run_meeting(store, extraction=None, project_id="trading-ai", **state):
+    """Run one meeting; the graph loads and saves project memory itself."""
 
-    model = ScriptedModel(replies={"extraction": [json.dumps(extraction)]})
+    replies = {"extraction": [json.dumps(extraction)]} if extraction else {}
+    model = ScriptedModel(replies=replies)
+    graph = build_meeting_graph()
+    config = {
+        "configurable": {
+            "thread_id": "t",
+            "meeting_model": model,
+            "meeting_store": store,
+        }
+    }
+
+    result = graph.invoke(
+        {"project_id": project_id, "topic": "Adaptive trading frequency", **state},
+        config,
+    )
+    return result, model
+
+
+def prompt_of(model, node, index=0):
+    return json.loads(model.calls_for(node)[index]["human"])
+
+
+def test_meeting_is_saved_automatically(store):
+    result, _ = run_meeting(store)
+
+    assert result["meeting_saved"] is True
+    assert store.get(result["meeting_id"]) == result["meeting_record"]
+
+
+def test_first_meeting_of_a_project_has_empty_context(store):
+    result, model = run_meeting(store)
+
+    assert result["project_context"]["history"] == []
+    assert "project_context" in prompt_of(model, "analysis")
+
+
+def test_nodes_see_project_memory(store):
+    first, _ = run_meeting(store, {
+        "proposals": [{"description": "Adaptive trading frequency"}],
+        "unresolved_issues": [{"description": "Transaction costs are unevaluated"}],
+    })
+    proposal_id = first["meeting_record"]["proposals"][0]["id"]
+
+    _, model = run_meeting(store)
+
+    for node in ("analysis", "deliberation", "moderator"):
+        context = prompt_of(model, node)["project_context"]
+        assert context["current_state"]["proposals"] == [
+            {"id": proposal_id, "text": "Adaptive trading frequency", "status": "proposed"}
+        ]
+        assert context["history"][0]["meeting_id"] == first["meeting_id"]
+        assert "authoritative" in model.calls_for(node)[0]["system"]
+
+
+def test_without_project_id_meeting_is_saved_but_no_memory_loaded(store):
+    result, model = run_meeting(store, project_id="")
+
+    assert "project_context" not in result
+    assert "project_context" not in prompt_of(model, "analysis")
+    assert "authoritative" not in model.calls_for("analysis")[0]["system"]
+    assert store.get(result["meeting_id"]) is not None
+
+
+def test_caller_supplied_context_is_kept(store):
+    supplied = {"project_id": "trading-ai", "current_state": {}, "history": [
+        {"meeting_id": "external", "meeting_summary": "From the parent app."}
+    ]}
+
+    result, model = run_meeting(store, project_context=supplied)
+
+    assert result["project_context"] == supplied
+    assert prompt_of(model, "analysis")["project_context"]["history"][0][
+        "meeting_id"] == "external"
+
+
+def test_without_store_nothing_is_loaded_or_saved():
+    model = ScriptedModel()
     graph = build_meeting_graph()
     config = {"configurable": {"thread_id": "t", "meeting_model": model}}
 
-    result = graph.invoke(
-        {
-            "project_id": "trading-ai",
-            "topic": "Adaptive trading frequency",
-            "project_context": load_project_context(store, "trading-ai"),
-        },
-        config,
-    )
-    store.save(result["meeting_record"])
-    return result, model
+    result = graph.invoke({"project_id": "trading-ai", "topic": "T"}, config)
+
+    assert "project_context" not in result
+    assert "meeting_saved" not in result
+    assert result["current_phase"] == "completed"
 
 
 def test_three_meetings_continue_the_same_work(store):

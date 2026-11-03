@@ -25,6 +25,7 @@ DEFAULT_MODEL = os.environ.get("MEETING_MODEL", "openai:gpt-4o")
 
 STEP_NAMES = {
     "initialize": "Agenda",
+    "load_project_memory": "Project memory",
     "analyze_context": "Context analysis",
     "deliberate": "Deliberation",
     "moderate": "Moderator",
@@ -48,6 +49,16 @@ store = MeetingStore()
 def format_step(node: str, update: dict) -> str:
     if node == "initialize":
         return f"Agenda: {update.get('current_agenda', '')}"
+
+    if node == "load_project_memory":
+        context = update.get("project_context")
+        if not context:
+            return "No project memory used."
+        counts = ", ".join(
+            f"{len(items)} {field.replace('_', ' ')}"
+            for field, items in context.get("current_state", {}).items()
+        )
+        return f"{len(context.get('history', []))} earlier meetings; {counts}."
 
     if node == "analyze_context":
         return update.get("context_analysis", "")
@@ -93,6 +104,15 @@ def format_artifacts(update: dict) -> str:
 
         lines.append("")
 
+    updates = update.get("meeting_record", {}).get("artifact_updates", [])
+    if updates:
+        lines.append(f"**Status updates** ({len(updates)})")
+        lines.extend(f"- `{u['id'][:8]}` → {u['status']}" for u in updates)
+        lines.append("")
+
+    for warning in update.get("extraction_warnings", []):
+        lines.append(f"_Warning: {warning}_")
+
     return "\n".join(lines).strip()
 
 
@@ -123,6 +143,7 @@ async def run_meeting(graph_input) -> None:
         "configurable": {
             "thread_id": cl.user_session.get("thread_id"),
             "meeting_model": model,
+            "meeting_store": store,
         }
     }
 
@@ -192,13 +213,10 @@ async def finish_meeting(state: dict) -> None:
         content=f"## Meeting report\n\n{state.get('meeting_summary', '')}"
     ).send()
 
-    record = state.get("meeting_record")
-
-    if record:
-        store.save(record)
-        note = f"Saved as meeting `{record['meeting_id']}`."
+    if state.get("meeting_saved"):
+        note = f"Saved as meeting `{state['meeting_id']}`."
     else:
-        note = "No meeting record was produced."
+        note = "No meeting record was saved."
 
     await cl.Message(
         content=f"{note}\n\nSend a new message to start another meeting."

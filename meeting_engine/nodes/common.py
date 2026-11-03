@@ -18,6 +18,11 @@ def get_model(config: dict):
     return model
 
 
+def get_store(config: dict):
+    """Return the meeting store injected into the configuration, if any."""
+    return config.get("configurable", {}).get("meeting_store")
+
+
 def invoke_text(
     model: Any,
     system_prompt: str,

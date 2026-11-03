@@ -3,6 +3,7 @@ import json
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
+from ..history import PROJECT_CONTEXT_RULES, prompt_context
 from .common import get_model, invoke_text, parse_json_object
 
 
@@ -60,6 +61,12 @@ Return ONLY a JSON object:
     "question_for_user": ""
 }
 """
+
+    project_context = prompt_context(state.get("project_context"))
+
+    if project_context:
+        context["project_context"] = project_context
+        system_prompt += PROJECT_CONTEXT_RULES
 
     raw_response = invoke_text(
         model=model,

@@ -23,6 +23,7 @@ Meeting_Engine/
 │       ├── moderator.py
 │       ├── human_feedback.py
 │       ├── finalize.py
+│       ├── project_memory.py
 │       └── extract_artifacts.py
 └── tests/
     ├── fakes.py             # Scripted test model, answers per node
@@ -38,6 +39,8 @@ Meeting_Engine/
 START
   |
 initialize
+  |
+load_project_memory      (current state + past meetings, if a store is given)
   |
 analyze_context
   |
@@ -56,6 +59,8 @@ moderate
   +---- conclude ------> finalize
                             |
                      extract_artifacts
+                            |
+                       save_meeting     (if a store is given)
                             |
                            END
 ```

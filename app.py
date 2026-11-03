@@ -269,23 +269,32 @@ def slug(name: str, taken: set[str]) -> str:
 
 
 def parse_participants(text: str, taken: set[str] | None = None) -> list[dict]:
-    """Read AI participants from "Name: role" lines."""
+    """Read AI participants from "Name: role | instructions" lines.
+
+    The role and the instructions are optional.
+    """
 
     taken = set() if taken is None else taken
     participants = []
 
     for line in (text or "").splitlines():
+        line, _, instructions = line.partition("|")
         name, _, role = line.partition(":")
         name = name.strip()
 
         if not name:
             continue
 
-        participants.append({
+        participant = {
             "id": slug(name, taken),
             "name": name,
             "role": role.strip() or name.lower(),
-        })
+        }
+
+        if instructions.strip():
+            participant["instructions"] = instructions.strip()
+
+        participants.append(participant)
 
     return participants
 
@@ -581,11 +590,11 @@ async def start() -> None:
             ),
             TextInput(
                 id="participants",
-                label="AI participants (one per line, 'Name: role')",
+                label="AI participants (one per line, 'Name: role | instructions')",
                 initial="",
                 placeholder=(
                     "Researcher: develops alternative strategies\n"
-                    "Risk analyst: identifies risks"
+                    "Risk analyst: identifies risks | Always quantify the downside."
                 ),
                 multiline=True,
             ),

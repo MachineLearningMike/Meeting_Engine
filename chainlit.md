@@ -11,7 +11,9 @@ or press **Continue without me** to let the meeting proceed on its own.
 Use the settings panel to choose the model (`provider:model`, for example
 `openai:gpt-4o` or `anthropic:claude-sonnet-5-5`), a project ID, and the
 maximum number of deliberation rounds, and AI participants: one per line as
-`Name: role`. Each speaks in every round from its role; without any, a single
+`Name: role`, optionally followed by `| instructions` (for example
+`Risk analyst: identifies risks | Always quantify the downside.`). Each speaks
+in every round from its role; without any, a single
 analyst deliberates. Finished meetings are saved to
 `data/meetings.db`.
 

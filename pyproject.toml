@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 ui = ["chainlit>=2.0.0"]
-test = ["pytest>=8.0"]
+test = ["pytest>=8.0", "langgraph-checkpoint-sqlite>=3.0"]
 
 [tool.setuptools.packages.find]
 include = ["meeting_engine*"]

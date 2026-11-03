@@ -166,8 +166,22 @@ def test_extracted_artifacts_are_recorded():
     assert result["proposals"] == record["proposals"]
 
 
+def test_invalid_extraction_is_retried_once_with_the_error():
+    valid = json.dumps({"proposals": [{"description": "Adaptive policy"}]})
+    model = ScriptedModel(replies={"extraction": ["not json", valid]})
+
+    _, _, result = start(model)
+    attempts = model.calls_for("extraction")
+
+    assert len(attempts) == 2
+    assert "previous_attempt_error" not in json.loads(attempts[0]["human"])
+    assert "No JSON object found" in json.loads(attempts[1]["human"])["previous_attempt_error"]
+    assert not result["extraction_error"]
+    assert result["meeting_record"]["proposals"][0]["description"] == "Adaptive policy"
+
+
 def test_invalid_extraction_keeps_meeting():
-    model = ScriptedModel(replies={"extraction": ["not json"]})
+    model = ScriptedModel(replies={"extraction": ["not json", "still not json"]})
 
     _, _, result = start(model)
     record = result["meeting_record"]

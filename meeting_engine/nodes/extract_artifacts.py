@@ -58,6 +58,9 @@ ARTIFACT_FIELDS = {
 
 ARGUMENT_TARGET_TYPES = set(get_args(ArgumentTargetType))
 
+# One retry, told what was wrong, before extraction is reported as failed.
+MAX_EXTRACTION_ATTEMPTS = 2
+
 # Fields naming a participant. Decisions may only be approved by a human.
 PARTICIPANT_FIELDS = {
     "proposals": "created_by",
@@ -488,32 +491,40 @@ IMPORTANT RULES:
 8. Do not include Markdown or explanations outside the JSON object.
 """ + LIFECYCLE_RULES
 
-    raw = invoke_text(
-        model=model,
-        system_prompt=system_prompt,
-        node="extraction",
-        human_prompt=json.dumps(
-            context,
-            ensure_ascii=False,
-            default=str,
-            indent=2,
-        ),
-    )
-
-    try:
-        artifacts, updates, warnings = resolve_extraction(
-            parse_json_object(raw),
-            current_state,
-            meeting_id,
-            agenda_ids=[item["id"] for item in agenda],
-            participants=state.get("participants", []),
+    for _ in range(MAX_EXTRACTION_ATTEMPTS):
+        raw = invoke_text(
+            model=model,
+            system_prompt=system_prompt,
+            node="extraction",
+            human_prompt=json.dumps(
+                context,
+                ensure_ascii=False,
+                default=str,
+                indent=2,
+            ),
         )
-        extraction_error = ""
-    except (ValueError, json.JSONDecodeError) as error:
+
+        try:
+            artifacts, updates, warnings = resolve_extraction(
+                parse_json_object(raw),
+                current_state,
+                meeting_id,
+                agenda_ids=[item["id"] for item in agenda],
+                participants=state.get("participants", []),
+            )
+            extraction_error = ""
+            break
+        except (ValueError, json.JSONDecodeError) as error:
+            extraction_error = str(error)
+            context["previous_attempt_error"] = (
+                f"Your previous response was rejected: {error} "
+                "Return exactly one valid JSON object."
+            )
+
+    if extraction_error:
         # Keep the completed meeting; report the failure instead of raising.
         artifacts = {field: [] for field in ARTIFACT_FIELDS}
         updates, warnings = [], []
-        extraction_error = str(error)
 
     meeting_record = {
         "meeting_id": meeting_id,

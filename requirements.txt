@@ -4,8 +4,9 @@ langgraph>=1.0.0
 # Web chat UI (app.py)
 chainlit>=2.0.0
 
-# Tests
+# Tests and examples/trading_project.py
 pytest>=8.0
+langgraph-checkpoint-sqlite>=3.0
 
 # Model providers are optional. Install the one(s) you use with main.py --model:
 #   langchain-openai        openai:gpt-4o

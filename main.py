@@ -7,6 +7,7 @@ from langgraph.types import Command
 
 from meeting_engine.graph import build_meeting_graph
 from meeting_engine.storage import MeetingStore
+from meeting_engine.testing import demo_model
 
 
 DEFAULT_MODEL = "openai:gpt-4o"
@@ -19,8 +20,8 @@ def main():
         default=os.environ.get("MEETING_MODEL", DEFAULT_MODEL),
         help=(
             "Chat model as 'provider:model', e.g. openai:gpt-4o, "
-            "anthropic:claude-sonnet-5-5, ollama:llama3.1. "
-            "Defaults to $MEETING_MODEL or " + DEFAULT_MODEL + "."
+            "anthropic:claude-sonnet-5-5, ollama:llama3.1, or 'fake' for an "
+            "offline demo. Defaults to $MEETING_MODEL or " + DEFAULT_MODEL + "."
         ),
     )
     parser.add_argument(
@@ -32,7 +33,10 @@ def main():
 
     # The provider package (langchain-openai, langchain-anthropic, ...)
     # is imported only for the provider actually selected.
-    model = init_chat_model(args.model, temperature=0)
+    if args.model == "fake":
+        model = demo_model()
+    else:
+        model = init_chat_model(args.model, temperature=0)
 
     graph = build_meeting_graph(InMemorySaver())
 

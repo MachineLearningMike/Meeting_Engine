@@ -6,6 +6,8 @@ Run one meeting at a time with a real model, for example:
     python examples/trading_project.py 2 --model openai:gpt-4o
     python examples/trading_project.py 3 --model openai:gpt-4o
 
+Use --model fake to try it offline with a scripted model.
+
 Project memory is kept in data/meetings.db and checkpoints in
 data/checkpoints.db, so a meeting paused for your answer can be resumed later
 by running the same command again.
@@ -22,6 +24,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from meeting_engine import MeetingStore, build_meeting_graph
+from meeting_engine.testing import demo_model
 
 
 PROJECT_ID = "trading-ai"
@@ -97,7 +100,11 @@ def main() -> None:
         graph = build_meeting_graph(SqliteSaver(conn))
         config = {"configurable": {
             "thread_id": f"{PROJECT_ID}-meeting-{args.meeting}",
-            "meeting_model": init_chat_model(args.model, temperature=0),
+            "meeting_model": (
+                demo_model()
+                if args.model == "fake"
+                else init_chat_model(args.model, temperature=0)
+            ),
             "meeting_store": store,
         }}
 

@@ -20,6 +20,9 @@ python examples/trading_project.py 1 --model openai:gpt-4o
 python examples/trading_project.py 2 --model openai:gpt-4o
 ```
 
+Use `--model fake` (or `fake` in the Chainlit settings) to try any of the
+entry points offline with a scripted model.
+
 ## Using the engine
 
 On its own, give the graph a checkpointer so human feedback can pause and

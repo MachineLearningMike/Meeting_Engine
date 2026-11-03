@@ -21,6 +21,7 @@ from langgraph.types import Command
 from meeting_engine import build_meeting_graph
 from meeting_engine.schemas import new_id
 from meeting_engine.storage import MeetingStore
+from meeting_engine.testing import demo_model
 
 
 DEFAULT_MODEL = os.environ.get("MEETING_MODEL", "openai:gpt-4o")
@@ -167,6 +168,11 @@ def get_model():
     """Build the chat model for the current settings, reusing it if unchanged."""
 
     name = cl.user_session.get("settings")["model"]
+
+    # The scripted demo model keeps state, so each meeting gets a fresh one.
+    if name == "fake":
+        return demo_model()
+
     cached = cl.user_session.get("model")
 
     if cached and cached[0] == name:

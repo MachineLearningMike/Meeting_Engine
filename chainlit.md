@@ -24,3 +24,9 @@ code; the others send `/join CODE`. When everyone is there, the host sends the
 topic. Everyone sees the meeting as it runs. A question addressed to someone
 goes to that person only; anyone can answer a general question. `/leave`
 leaves the room.
+
+## Languages
+
+Write in any language; the meeting follows it. To fix the language, set
+**Meeting language** (for example `日本語`). **Your language** makes the
+moderator ask you in that language, which helps in mixed-language rooms.

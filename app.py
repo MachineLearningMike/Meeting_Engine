@@ -72,6 +72,7 @@ class Room:
     code: str
     host: str
     members: dict[str, str] = field(default_factory=dict)  # session id -> name
+    languages: dict[str, str] = field(default_factory=dict)  # session id -> language
     phase: str = "lobby"  # lobby | running | awaiting_feedback | done
     thread_id: str = ""
     model: Any = None
@@ -317,12 +318,15 @@ def meeting_participants(room: Room, ai_text: str) -> list[dict]:
     for session_id, name in room.members.items():
         participant_id = slug(name, taken)
         room.humans[participant_id] = session_id
-        humans.append({
+        human = {
             "id": participant_id,
             "name": name,
             "role": "host" if session_id == room.host else "human participant",
             "is_human": True,
-        })
+        }
+        if room.languages.get(session_id):
+            human["language"] = room.languages[session_id]
+        humans.append(human)
 
     return ai + humans
 
@@ -333,6 +337,10 @@ def display_name(session_id: str, room: Room | None = None) -> str:
         return name
     count = len(room.members) + 1 if room else 1
     return f"Guest {count}"
+
+
+def own_language() -> str:
+    return (cl.user_session.get("settings") or {}).get("my_language", "").strip()
 
 
 def make_model(name: str):
@@ -486,6 +494,7 @@ async def start_meeting(room: Room, text: str) -> None:
 
     await run_meeting(room, {
         "project_id": settings["project_id"].strip(),
+        "language": settings.get("language", "").strip(),
         "topic": topic,
         "background": background.strip(),
         "agenda": [
@@ -503,6 +512,7 @@ async def start_meeting(room: Room, text: str) -> None:
 def create_room(session_id: str) -> Room:
     room = Room(code=new_code(), host=session_id)
     room.members[session_id] = display_name(session_id)
+    room.languages[session_id] = own_language()
     ROOMS[room.code] = room
     return room
 
@@ -513,6 +523,7 @@ async def leave_room(session_id: str) -> None:
         return
 
     name = room.members.pop(session_id, "Someone")
+    room.languages.pop(session_id, None)
 
     if not room.members:
         ROOMS.pop(room.code, None)
@@ -544,6 +555,7 @@ async def join_room(session_id: str, code: str) -> None:
     await leave_room(session_id)
     name = display_name(session_id, room)
     room.members[session_id] = name
+    room.languages[session_id] = own_language()
 
     await say(room, f"_{name} joined._", exclude={session_id})
 
@@ -578,6 +590,16 @@ async def start() -> None:
     settings = await cl.ChatSettings(
         [
             TextInput(id="name", label="Your name", initial=""),
+            TextInput(
+                id="my_language",
+                label="Your language (optional; questions to you use it)",
+                initial="",
+            ),
+            TextInput(
+                id="language",
+                label="Meeting language (blank: the language you write in)",
+                initial="",
+            ),
             TextInput(
                 id="model",
                 label="Model (provider:model, or 'fake' for an offline demo)",
@@ -621,6 +643,9 @@ async def update_settings(settings: dict) -> None:
     session_id = current_session()
     room = room_of(session_id)
     name = settings.get("name", "").strip()
+
+    if room:
+        room.languages[session_id] = own_language()
 
     if room and name and room.members.get(session_id) != name:
         old = room.members[session_id]

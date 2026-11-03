@@ -29,6 +29,7 @@ class MeetingState(TypedDict, total=False):
     project_id: str
     topic: str
     background: str
+    language: str
     prior_state: dict[str, Any]
     project_context: ProjectContext
 
@@ -94,6 +95,7 @@ class MeetingInput(TypedDict, total=False):
     project_id: str
     topic: str
     background: str
+    language: str
     prior_state: dict[str, Any]
     project_context: ProjectContext
     objectives: list[MeetingObjective]

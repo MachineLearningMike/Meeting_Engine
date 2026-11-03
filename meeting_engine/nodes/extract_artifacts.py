@@ -23,6 +23,7 @@ from ..schemas import (
 from .common import (
     get_model,
     invoke_text,
+    language_rule,
     parse_json_object,
     participants_overview,
 )
@@ -490,6 +491,8 @@ IMPORTANT RULES:
 7. If no items exist in a category, return an empty list.
 8. Do not include Markdown or explanations outside the JSON object.
 """ + LIFECYCLE_RULES
+
+    system_prompt += language_rule(state, structured=True)
 
     for _ in range(MAX_EXTRACTION_ATTEMPTS):
         raw = invoke_text(

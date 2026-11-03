@@ -61,9 +61,10 @@ own node instead.
 | Key | Meaning |
 | --- | --- |
 | `topic`, `background` | What the meeting is about |
+| `language` | Language of all output, e.g. `日本語`; if missing, the language the meeting is held in |
 | `project_id` | Meetings with the same id share project memory |
 | `agenda` | Items discussed one at a time; if missing, built from `problems` and `objectives`, else the topic |
-| `participants` | AI participants speak in every round from their role; human ones answer questions |
+| `participants` | AI participants speak in every round from their role; human ones answer questions, in their own `language` if set |
 | `max_rounds_per_agenda` | Round limit per agenda item (default 3) |
 | `max_total_rounds` | Limit for the whole meeting (default: per-item limit × (items + 1)) |
 | `project_context` | Supply project memory yourself instead of loading it from the store |

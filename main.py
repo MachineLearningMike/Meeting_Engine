@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import InMemorySaver
@@ -14,6 +15,10 @@ DEFAULT_MODEL = "openai:gpt-4o"
 
 
 def main():
+    # Redirected output on Windows may use a code page without e.g. Japanese;
+    # replace what it cannot show instead of crashing.
+    sys.stdout.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(description="Run a meeting.")
     parser.add_argument(
         "--model",
@@ -28,6 +33,11 @@ def main():
         "--project",
         default="",
         help="Project ID. Meetings of the same project share their memory.",
+    )
+    parser.add_argument(
+        "--language",
+        default="",
+        help="Meeting language, e.g. Japanese. Default: the language you write in.",
     )
     args = parser.parse_args()
 
@@ -50,6 +60,7 @@ def main():
 
     initial_state = {
         "project_id": args.project,
+        "language": args.language,
         "topic": "Adaptive trading frequency",
         "background": "Our trading system generates too many trades.",
         "problems": [

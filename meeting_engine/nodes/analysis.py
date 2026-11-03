@@ -3,7 +3,13 @@ from langchain_core.runnables import RunnableConfig
 import json
 
 from ..history import PROJECT_CONTEXT_RULES, prompt_context
-from .common import agenda_overview, get_model, invoke_text, participants_overview
+from .common import (
+    agenda_overview,
+    get_model,
+    invoke_text,
+    language_rule,
+    participants_overview,
+)
 
 
 def analyze_context(
@@ -51,6 +57,8 @@ Be precise and concise.
     if project_context:
         context["project_context"] = project_context
         system_prompt += PROJECT_CONTEXT_RULES
+
+    system_prompt += language_rule(state)
 
     analysis = invoke_text(
         model=model,

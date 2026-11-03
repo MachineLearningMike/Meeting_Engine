@@ -3,7 +3,7 @@ import json
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 
-from .common import agenda_overview, get_model, invoke_text
+from .common import agenda_overview, get_model, invoke_text, language_rule
 
 
 def finalize_meeting(
@@ -56,6 +56,8 @@ Important rules:
 - Preserve important disagreements.
 - Say which agenda items were deferred or not reached.
 """
+
+    system_prompt += language_rule(state)
 
     summary = invoke_text(
         model=model,

@@ -8,6 +8,7 @@ from .common import (
     agenda_overview,
     get_model,
     invoke_text,
+    language_rule,
     participants_overview,
 )
 
@@ -90,6 +91,8 @@ def deliberate(
     if project_context:
         context["project_context"] = project_context
         system_prompt += PROJECT_CONTEXT_RULES
+
+    system_prompt += language_rule(state)
 
     round_count = state.get("round_count", 0) + 1
     progress = {

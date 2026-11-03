@@ -8,6 +8,7 @@ from .common import (
     agenda_overview,
     get_model,
     invoke_text,
+    language_rule,
     parse_json_object,
     participants_overview,
 )
@@ -81,6 +82,8 @@ one or two sentences on where the current item stands.
 
 For request_user_feedback, you may address a specific human participant by
 setting ask_participant_id to their id. Only human participants can answer.
+If that participant has a language, write question_for_user in their
+language.
 
 Return ONLY a JSON object:
 
@@ -99,6 +102,8 @@ Return ONLY a JSON object:
     if project_context:
         context["project_context"] = project_context
         system_prompt += PROJECT_CONTEXT_RULES
+
+    system_prompt += language_rule(state, structured=True)
 
     raw_response = invoke_text(
         model=model,

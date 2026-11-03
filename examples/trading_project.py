@@ -16,6 +16,7 @@ by running the same command again.
 import argparse
 import os
 import sqlite3
+import sys
 from contextlib import closing
 from pathlib import Path
 
@@ -84,6 +85,10 @@ def print_project_state(store: MeetingStore) -> None:
 
 
 def main() -> None:
+    # Redirected output on Windows may use a code page without e.g. Japanese;
+    # replace what it cannot show instead of crashing.
+    sys.stdout.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("meeting", type=int, choices=sorted(MEETINGS))
     parser.add_argument(

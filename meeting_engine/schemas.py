@@ -89,7 +89,7 @@ class Participant(TypedDict, total=False):
     Non-human participants speak in every deliberation round. "instructions"
     adds to their prompt, and "model" names an entry in
     configurable["participant_models"]. Human participants answer the
-    moderator's questions.
+    moderator's questions, which are written in their "language" if set.
     """
 
     id: str
@@ -98,6 +98,7 @@ class Participant(TypedDict, total=False):
     description: str
     instructions: str
     model: str
+    language: str
     is_human: bool
 
 

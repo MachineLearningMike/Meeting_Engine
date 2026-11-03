@@ -46,9 +46,42 @@ def participants_overview(state: dict) -> list[dict]:
             "name": participant.get("name", participant["id"]),
             "role": participant.get("role", ""),
             "is_human": participant.get("is_human", False),
+            **(
+                {"language": participant["language"]}
+                if participant.get("language")
+                else {}
+            ),
         }
         for participant in state.get("participants", [])
     ]
+
+
+def language_rule(state: dict, structured: bool = False) -> str:
+    """Prompt text telling a node which language to write in.
+
+    With state["language"] the meeting uses that language; otherwise it uses
+    the language the meeting is held in. For JSON output, only free text is
+    written in that language.
+    """
+
+    language = (state.get("language") or "").strip()
+
+    if language:
+        rule = f"Write all your output in {language}."
+    else:
+        rule = (
+            "Write in the language the meeting is held in: the language of "
+            "the topic and of the human participants' messages. If that is "
+            "unclear, use English."
+        )
+
+    if structured:
+        rule += (
+            " This applies to free-text values only; keep JSON keys, ids, "
+            "actions and status values exactly as specified."
+        )
+
+    return f"\nLANGUAGE: {rule}\n"
 
 
 def agenda_overview(state: dict) -> list[dict]:

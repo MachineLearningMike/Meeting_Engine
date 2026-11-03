@@ -1,7 +1,6 @@
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import InMemorySaver
 
-from .state import MeetingState
+from .state import MeetingInput, MeetingOutput, MeetingState
 
 from .nodes.initialization import initialize_meeting
 from .nodes.agenda import advance_agenda
@@ -41,6 +40,14 @@ def build_meeting_graph(checkpointer=None):
     """
     Build and compile the reusable meeting graph.
 
+    The graph reads a MeetingInput and returns a MeetingOutput; everything
+    else, including the transcript, stays in its own state.
+
+    checkpointer:
+        Pass one (e.g. InMemorySaver()) when running the meeting on its own;
+        it is required for human feedback interrupts. Leave it None when the
+        meeting is a node in a parent graph, which then provides checkpointing.
+
     The model is supplied at invocation time through:
         config["configurable"]["meeting_model"]
 
@@ -48,7 +55,11 @@ def build_meeting_graph(checkpointer=None):
     loads the project's memory at the start and saves the record at the end.
     """
 
-    builder = StateGraph(MeetingState)
+    builder = StateGraph(
+        MeetingState,
+        input_schema=MeetingInput,
+        output_schema=MeetingOutput,
+    )
 
     # Register nodes.
     builder.add_node("initialize", initialize_meeting)
@@ -94,10 +105,6 @@ def build_meeting_graph(checkpointer=None):
     builder.add_edge("finalize", "extract_artifacts")
     builder.add_edge("extract_artifacts", "save_meeting")
     builder.add_edge("save_meeting", END)
-
-    # Use in-memory checkpointing by default.
-    if checkpointer is None:
-        checkpointer = InMemorySaver()
 
     return builder.compile(checkpointer=checkpointer)
 

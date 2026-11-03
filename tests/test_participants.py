@@ -4,8 +4,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.types import Command
 
-from fakes import CONCLUDE, CONTINUE, ScriptedModel, moderator_reply
-from meeting_engine import build_meeting_graph
+from fakes import CONCLUDE, CONTINUE, ScriptedModel, invoke, moderator_reply, new_graph
 from meeting_engine.nodes.extract_artifacts import resolve_extraction
 
 
@@ -20,11 +19,11 @@ PARTICIPANTS = [
 
 def start(replies=None, participants=PARTICIPANTS, configurable=None, **state):
     model = ScriptedModel(replies=replies or {})
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {"configurable": {
         "thread_id": "t", "meeting_model": model, **(configurable or {})
     }}
-    result = graph.invoke(
+    result = invoke(graph, 
         {"topic": "Trading", "participants": participants, **state}, config
     )
     return graph, config, result, model
@@ -123,7 +122,7 @@ def test_moderator_can_address_a_human_participant():
     payload = result["__interrupt__"][0].value
     assert payload["participant"] == {"id": "owner", "name": "Haruto"}
 
-    result = graph.invoke(Command(resume={"feedback": "Yes, up to 5%."}), config)
+    result = invoke(graph, Command(resume={"feedback": "Yes, up to 5%."}), config)
 
     human = [m for m in result["messages"] if isinstance(m, HumanMessage) and m.name]
     assert [(m.name, m.content) for m in human] == [("owner", "[Haruto] Yes, up to 5%.")]

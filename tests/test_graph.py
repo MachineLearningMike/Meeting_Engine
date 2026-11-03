@@ -4,8 +4,7 @@ import pytest
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
-from fakes import ASK, CONCLUDE, CONTINUE, ScriptedModel
-from meeting_engine import build_meeting_graph
+from fakes import ASK, CONCLUDE, CONTINUE, ScriptedModel, invoke, new_graph
 
 
 INITIAL_STATE = {
@@ -23,9 +22,9 @@ INITIAL_STATE = {
 def start(model, **overrides):
     """Start a meeting on a fresh graph and return (graph, config, result)."""
 
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {"configurable": {"thread_id": "test", "meeting_model": model}}
-    result = graph.invoke({**INITIAL_STATE, **overrides}, config)
+    result = invoke(graph, {**INITIAL_STATE, **overrides}, config)
     return graph, config, result
 
 
@@ -57,7 +56,7 @@ def test_feedback_interrupt_and_resume():
 
     assert result["__interrupt__"][0].value["question"] == "Which approach?"
 
-    result = graph.invoke(
+    result = invoke(graph, 
         Command(resume={"feedback": "I prefer adaptive frequency."}), config
     )
 
@@ -79,7 +78,7 @@ def test_resume_accepts_plain_string():
     model = ScriptedModel(replies={"moderator": [ASK, CONCLUDE]})
 
     graph, config, _ = start(model)
-    result = graph.invoke(Command(resume="Plain answer"), config)
+    result = invoke(graph, Command(resume="Plain answer"), config)
 
     assert result["user_feedback"] == "Plain answer"
     assert result["current_phase"] == "completed"
@@ -93,7 +92,7 @@ def test_declining_feedback_stops_questions():
 
     while result.get("__interrupt__"):
         interrupts += 1
-        result = graph.invoke(
+        result = invoke(graph, 
             Command(resume={"feedback": "", "decline_future_questions": True}),
             config,
         )
@@ -111,7 +110,7 @@ def test_round_cap_bounds_feedback_requests():
 
     while result.get("__interrupt__"):
         interrupts += 1
-        result = graph.invoke(Command(resume={"feedback": "ok"}), config)
+        result = invoke(graph, Command(resume={"feedback": "ok"}), config)
 
     assert interrupts == 1
     assert result["round_count"] == 2
@@ -181,10 +180,10 @@ def test_invalid_extraction_keeps_meeting():
 
 
 def test_missing_model_raises():
-    graph = build_meeting_graph()
+    graph = new_graph()
 
     with pytest.raises(ValueError, match="No meeting model supplied"):
-        graph.invoke(INITIAL_STATE, {"configurable": {"thread_id": "test"}})
+        invoke(graph, INITIAL_STATE, {"configurable": {"thread_id": "test"}})
 
 
 if __name__ == "__main__":

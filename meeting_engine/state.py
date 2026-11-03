@@ -81,3 +81,41 @@ class MeetingState(TypedDict, total=False):
 
     # Final output
     meeting_summary: str
+
+
+class MeetingInput(TypedDict, total=False):
+    """What a caller or parent graph provides to start a meeting.
+
+    meeting_id is optional; a new one is generated when it is missing. Reusing
+    an id saves the meeting over the earlier record with that id.
+    """
+
+    meeting_id: str
+    project_id: str
+    topic: str
+    background: str
+    prior_state: dict[str, Any]
+    project_context: ProjectContext
+    objectives: list[MeetingObjective]
+    problems: list[MeetingProblem]
+    participants: list[Participant]
+    agenda: list[AgendaItem]
+    max_rounds_per_agenda: int
+    max_total_rounds: int
+
+
+class MeetingOutput(TypedDict, total=False):
+    """What a finished meeting returns to its caller or parent graph.
+
+    The transcript and deliberation control stay inside the meeting; read
+    them with graph.get_state(config) when needed.
+    """
+
+    meeting_id: str
+    project_id: str
+    meeting_record: MeetingRecord
+    meeting_summary: str
+    agenda: list[AgendaItem]
+    extraction_error: str
+    extraction_warnings: list[str]
+    meeting_saved: bool

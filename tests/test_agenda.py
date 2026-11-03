@@ -3,8 +3,7 @@ import json
 import pytest
 from langgraph.types import Command
 
-from fakes import ASK, CONCLUDE, CONTINUE, ScriptedModel, moderator_reply
-from meeting_engine import build_meeting_graph
+from fakes import ASK, CONCLUDE, CONTINUE, ScriptedModel, invoke, moderator_reply, new_graph
 from meeting_engine.nodes.extract_artifacts import resolve_extraction
 from meeting_engine.nodes.initialization import build_agenda
 
@@ -29,9 +28,9 @@ def revisit(target):
 
 def start(moderator, agenda=AGENDA, **state):
     model = ScriptedModel(replies={"moderator": list(moderator)})
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {"configurable": {"thread_id": "t", "meeting_model": model}}
-    result = graph.invoke({"topic": "Trading", "agenda": agenda, **state}, config)
+    result = invoke(graph, {"topic": "Trading", "agenda": agenda, **state}, config)
     return graph, config, result, model
 
 
@@ -167,7 +166,7 @@ def test_total_cap_stops_endless_revisits():
 def test_feedback_does_not_carry_over_to_the_next_item():
     graph, config, result, model = start([ASK, next_item(), next_item(), next_item()])
 
-    result = graph.invoke(Command(resume={"feedback": "Adaptive."}), config)
+    result = invoke(graph, Command(resume={"feedback": "Adaptive."}), config)
 
     analyses = [json.loads(c["human"])["user_feedback"] for c in model.calls_for("analysis")]
     assert analyses == ["", "Adaptive.", "", ""]
@@ -218,10 +217,10 @@ def test_record_holds_agenda_items_and_tagged_artifacts():
         "moderator": [next_item(), next_item(), next_item()],
         "extraction": [extraction],
     })
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {"configurable": {"thread_id": "t", "meeting_model": model}}
 
-    result = graph.invoke({"topic": "Trading", "agenda": AGENDA}, config)
+    result = invoke(graph, {"topic": "Trading", "agenda": AGENDA}, config)
     record = result["meeting_record"]
 
     assert [i["id"] for i in record["agenda_items"]] == ["a1", "a2", "a3"]

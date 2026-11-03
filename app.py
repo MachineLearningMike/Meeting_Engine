@@ -15,6 +15,7 @@ import uuid
 import chainlit as cl
 from chainlit.input_widget import Slider, TextInput
 from langchain.chat_models import init_chat_model
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from meeting_engine import build_meeting_graph
@@ -44,7 +45,7 @@ ARTIFACT_TITLES = {
 }
 
 # One graph and checkpointer for the server; each meeting is its own thread.
-graph = build_meeting_graph()
+graph = build_meeting_graph(InMemorySaver())
 store = MeetingStore()
 
 

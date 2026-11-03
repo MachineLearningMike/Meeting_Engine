@@ -2,8 +2,7 @@ import json
 
 import pytest
 
-from fakes import ScriptedModel
-from meeting_engine import build_meeting_graph
+from fakes import ScriptedModel, invoke, new_graph
 from meeting_engine.history import compact_state, load_project_context
 from meeting_engine.nodes.extract_artifacts import resolve_extraction
 from meeting_engine.storage import MeetingStore
@@ -450,7 +449,7 @@ def run_meeting(store, extraction=None, project_id="trading-ai", **state):
 
     replies = {"extraction": [json.dumps(extraction)]} if extraction else {}
     model = ScriptedModel(replies=replies)
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {
         "configurable": {
             "thread_id": "t",
@@ -459,7 +458,7 @@ def run_meeting(store, extraction=None, project_id="trading-ai", **state):
         }
     }
 
-    result = graph.invoke(
+    result = invoke(graph, 
         {"project_id": project_id, "topic": "Adaptive trading frequency", **state},
         config,
     )
@@ -525,10 +524,10 @@ def test_caller_supplied_context_is_kept(store):
 
 def test_without_store_nothing_is_loaded_or_saved():
     model = ScriptedModel()
-    graph = build_meeting_graph()
+    graph = new_graph()
     config = {"configurable": {"thread_id": "t", "meeting_model": model}}
 
-    result = graph.invoke({"project_id": "trading-ai", "topic": "T"}, config)
+    result = invoke(graph, {"project_id": "trading-ai", "topic": "T"}, config)
 
     assert "project_context" not in result
     assert "meeting_saved" not in result

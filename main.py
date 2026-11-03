@@ -2,6 +2,7 @@ import argparse
 import os
 
 from langchain.chat_models import init_chat_model
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from meeting_engine.graph import build_meeting_graph
@@ -33,7 +34,7 @@ def main():
     # is imported only for the provider actually selected.
     model = init_chat_model(args.model, temperature=0)
 
-    graph = build_meeting_graph()
+    graph = build_meeting_graph(InMemorySaver())
 
     config = {
         "configurable": {

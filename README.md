@@ -30,6 +30,7 @@ Meeting_Engine/
     ├── fakes.py             # Scripted test model, answers per node
     ├── test_agenda.py
     ├── test_participants.py
+    ├── test_subgraph.py
     ├── test_graph.py
     ├── test_artifacts.py
     ├── test_history.py
@@ -68,6 +69,37 @@ moderate                |                        |
                               |
                              END
 ```
+
+## Using the engine
+
+On its own, give the graph a checkpointer so human feedback can pause and
+resume:
+
+```python
+from langgraph.checkpoint.memory import InMemorySaver
+from meeting_engine import MeetingStore, build_meeting_graph
+
+graph = build_meeting_graph(InMemorySaver())
+config = {"configurable": {
+    "thread_id": "meeting-1",
+    "meeting_model": model,          # any LangChain chat model
+    "meeting_store": MeetingStore(), # optional: project memory
+}}
+result = graph.invoke({"project_id": "trading-ai", "topic": "..."}, config)
+```
+
+Inside a parent graph, leave the checkpointer out; the parent's is used, and
+interrupts pause the parent:
+
+```python
+parent_builder.add_node("meeting", build_meeting_graph())
+```
+
+The graph reads `MeetingInput` keys from the parent state (topic, agenda,
+problems, participants, project_id, ...) and writes back `MeetingOutput`
+(meeting_record, meeting_summary, agenda, ...). The transcript stays inside
+the meeting, so it never mixes with a parent's `messages`. A parent with
+differently named state can call the graph from its own node instead.
 
 ## Running
 

@@ -8,6 +8,9 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langgraph.checkpoint.memory import InMemorySaver
+
+from meeting_engine import build_meeting_graph
 
 
 def moderator_reply(
@@ -91,3 +94,18 @@ class ScriptedModel(BaseChatModel):
 
     def calls_for(self, node: str) -> list[dict[str, Any]]:
         return [call for call in self.calls if call["node"] == node]
+
+
+def new_graph():
+    """A standalone meeting graph with its own in-memory checkpointer."""
+    return build_meeting_graph(InMemorySaver())
+
+
+def invoke(graph, graph_input, config):
+    """Invoke the graph and return its full internal state plus any interrupt.
+
+    The graph itself only returns MeetingOutput; tests also inspect the
+    transcript and deliberation control.
+    """
+    result = graph.invoke(graph_input, config)
+    return {**graph.get_state(config).values, **result}

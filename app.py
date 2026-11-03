@@ -169,17 +169,16 @@ def get_model():
 
     name = cl.user_session.get("settings")["model"]
 
-    # The scripted demo model keeps state, so each meeting gets a fresh one.
-    if name == "fake":
-        return demo_model()
-
+    # The scripted demo model keeps its place in the script, so it is kept
+    # for one meeting (thread) and replaced when the next meeting starts.
+    key = (name, cl.user_session.get("thread_id")) if name == "fake" else (name,)
     cached = cl.user_session.get("model")
 
-    if cached and cached[0] == name:
+    if cached and cached[0] == key:
         return cached[1]
 
-    model = init_chat_model(name, temperature=0)
-    cl.user_session.set("model", (name, model))
+    model = demo_model() if name == "fake" else init_chat_model(name, temperature=0)
+    cl.user_session.set("model", (key, model))
     return model
 
 
@@ -274,7 +273,8 @@ async def finish_meeting(state: dict) -> None:
         note = "No meeting record was saved."
 
     await cl.Message(
-        content=f"{note}\n\nSend a new message to start another meeting."
+        content=f"{note}\n\nSend a new message to start another meeting.",
+        actions=[past_meetings_action()],
     ).send()
 
 
@@ -322,7 +322,8 @@ async def start() -> None:
             "Put the topic on the first line. Lines starting with `- ` "
             "become agenda items; anything else below the topic is "
             "background."
-        )
+        ),
+        actions=[past_meetings_action()],
     ).send()
 
 
@@ -364,6 +365,61 @@ async def on_message(message: cl.Message) -> None:
         "participants": parse_participants(settings.get("participants", "")),
         "max_rounds_per_agenda": int(settings["max_rounds"]),
     })
+
+
+def past_meetings_action() -> cl.Action:
+    return cl.Action(name="show_meetings", payload={}, label="Past meetings")
+
+
+@cl.action_callback("show_meetings")
+async def show_meetings(action: cl.Action) -> None:
+    project_id = cl.user_session.get("settings", {}).get("project_id", "").strip()
+    records = store.list_meetings(project_id or None, limit=20)
+
+    if not records:
+        scope = f" for project `{project_id}`" if project_id else ""
+        await cl.Message(content=f"No saved meetings{scope} yet.").send()
+        return
+
+    scope = f"project `{project_id}`" if project_id else "all projects"
+    await cl.Message(
+        content=f"**Past meetings** ({scope}, newest first). Pick one to open its report.",
+        actions=[
+            cl.Action(
+                name="show_report",
+                payload={"meeting_id": record["meeting_id"]},
+                label=(record.get("topic") or record["meeting_id"])[:60],
+            )
+            for record in records
+        ],
+    ).send()
+
+
+@cl.action_callback("show_report")
+async def show_report(action: cl.Action) -> None:
+    record = store.get(action.payload.get("meeting_id", ""))
+
+    if record is None:
+        await cl.Message(content="That meeting is no longer saved.").send()
+        return
+
+    project = f" · project `{record['project_id']}`" if record.get("project_id") else ""
+    agenda = "\n".join(
+        f"- {item.get('description', '')} _({item.get('status', '')})_"
+        for item in record.get("agenda_items", [])
+    )
+
+    await cl.Message(
+        content=(
+            f"## {record.get('topic', 'Meeting')}\n"
+            f"`{record['meeting_id']}`{project}\n\n"
+            + (f"**Agenda**\n{agenda}\n\n" if agenda else "")
+            + f"{record.get('meeting_summary') or '_No report saved._'}\n\n"
+            "---\n\n"
+            + format_artifacts({**record, "meeting_record": record})
+        ),
+        actions=[past_meetings_action()],
+    ).send()
 
 
 @cl.action_callback("decline_feedback")
